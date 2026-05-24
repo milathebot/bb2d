@@ -1,8 +1,19 @@
 # Bb2D
 
-A complete tiny cozy browser RPG gift: farming, fishing, forest gathering, home decorating, cats, match-3 memories, and a romantic ending.
+A cozy browser RPG gift: farming, fishing, gathering, decorating, cats, match-3 memories, and a romantic ending.
 
 Live: https://milathebot.github.io/bb2d/
+
+## Visuals
+
+Bb2D now uses a custom lightweight pixel-art asset pack in `public/assets/`:
+
+- grass/forest/dirt/water/wood tiles
+- trees, herbs, crops, pond dock, house, shrine, memory signs
+- player, B, Pengu, Mila
+- cozy home rug/decor pieces
+
+All assets are local/custom SVGs, so the game stays fast and has no external asset dependency.
 
 ## Goal
 

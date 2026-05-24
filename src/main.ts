@@ -7,7 +7,7 @@ type WorldItem = {
   kind: ItemKind
   name: string
   zone: Phaser.Geom.Rectangle
-  sprite?: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Container
+  sprite?: Phaser.GameObjects.Image | Phaser.GameObjects.Container
   stage?: number
   cooldown?: number
   collected?: boolean
@@ -47,6 +47,11 @@ class Bb2DScene extends Phaser.Scene {
   private fireflies: Phaser.GameObjects.Arc[] = []
 
   constructor() { super('bb2d') }
+
+  preload() {
+    const assets = ['tile-grass','tile-forest','tile-dirt','tile-water','tile-wood','tree','herb','crop0','crop1','crop2','crop3','house','shrine','memory-sign','player','wife','cat-pengu','cat-mila','dock','rug']
+    assets.forEach(name => this.load.image(name, `assets/${name}.svg`))
+  }
 
   create() {
     this.cameras.main.setBackgroundColor('#142820')
@@ -94,21 +99,24 @@ class Bb2DScene extends Phaser.Scene {
     g.fillGradientStyle(0x19372d, 0x19372d, 0x254f40, 0x254f40, 1)
     g.fillRect(0, 0, 960, 640)
 
-    for (let x = 0; x < 960; x += 32) for (let y = 64; y < 640; y += 32) {
-      if ((x + y) % 96 === 0) this.add.rectangle(x + 8, y + 8, 3, 3, 0x8fcf8f, 0.22)
-    }
+    this.add.tileSprite(480, 352, 960, 576, 'tile-grass')
 
-    this.zone(36, 82, 365, 230, 0x315f43, 'Moon Forest', 77, 94)
-    this.zone(608, 91, 286, 178, 0x2b7890, 'Quiet Pond', 650, 105)
-    this.zone(86, 405, 315, 155, 0x84613c, 'Garden', 127, 418)
-    this.zone(594, 360, 262, 188, 0x8b6d4c, 'Home Base', 653, 380)
+    this.zone(36, 82, 365, 230, 0x315f43, 'Moon Forest', 77, 94, 'tile-forest')
+    this.zone(608, 91, 286, 178, 0x2b7890, 'Quiet Pond', 650, 105, 'tile-water')
+    this.zone(86, 405, 315, 155, 0x84613c, 'Garden', 127, 418, 'tile-dirt')
+    this.zone(594, 360, 262, 188, 0x8b6d4c, 'Home Base', 653, 380, 'tile-wood')
     this.zone(420, 262, 130, 104, 0x44376a, 'Memory Shrine', 423, 242)
     this.zone(426, 90, 152, 82, 0x324b66, 'University', 458, 104)
     this.zone(440, 412, 130, 86, 0x5d3768, 'Rave Night', 463, 426)
     this.zone(770, 298, 128, 84, 0x6a5130, 'Dubai → Canada', 788, 312)
 
-    this.add.circle(752, 180, 84, 0x4db2c7, 0.38)
-    this.add.circle(752, 180, 54, 0x82dbef, 0.20)
+    this.add.image(736, 452, 'house').setScale(0.86)
+    this.add.image(486, 315, 'shrine').setScale(0.78)
+    this.add.image(738, 221, 'dock').setScale(1.05)
+    this.add.image(700, 494, 'rug').setScale(0.9)
+
+    this.add.circle(752, 180, 84, 0x4db2c7, 0.18)
+    this.add.circle(752, 180, 54, 0x82dbef, 0.16)
     this.add.rectangle(725, 205, 92, 14, 0xf5e6af, 0.45)
 
     for (let i = 0; i < 20; i++) {
@@ -117,8 +125,10 @@ class Bb2DScene extends Phaser.Scene {
     }
   }
 
-  private zone(x: number, y: number, w: number, h: number, color: number, label: string, lx: number, ly: number) {
-    this.add.rectangle(x + w / 2, y + h / 2, w, h, color, 0.92).setStrokeStyle(2, 0xffffff, 0.12)
+  private zone(x: number, y: number, w: number, h: number, color: number, label: string, lx: number, ly: number, tile?: string) {
+    if (tile) this.add.tileSprite(x + w / 2, y + h / 2, w, h, tile).setAlpha(0.96)
+    else this.add.rectangle(x + w / 2, y + h / 2, w, h, color, 0.78)
+    this.add.rectangle(x + w / 2, y + h / 2, w, h, color, tile ? 0.18 : 0.32).setStrokeStyle(2, 0xffffff, 0.16)
     this.add.text(lx, ly, label, { fontFamily: 'monospace', fontSize: '14px', color: '#ffe9ad', backgroundColor: '#0e181699', padding: { x: 7, y: 3 } })
   }
 
@@ -138,8 +148,8 @@ class Bb2DScene extends Phaser.Scene {
     for (let i = 0; i < 6; i++) {
       const x = 135 + (i % 3) * 80
       const y = 456 + Math.floor(i / 3) * 55
-      const crop = this.add.rectangle(x, y, 36, 30, 0x5a3a24).setStrokeStyle(2, 0x2c2017)
-      this.add.rectangle(x, y + 20, 50, 5, 0x3d291b, 0.5)
+      const crop = this.add.image(x, y, 'crop0')
+      this.add.ellipse(x, y + 20, 52, 9, 0x3d291b, 0.35)
       this.items.push({ kind: 'crop', name: 'garden plot', zone: new Phaser.Geom.Rectangle(x - 30, y - 25, 60, 50), sprite: crop, stage: 0 })
     }
 
@@ -219,13 +229,12 @@ class Bb2DScene extends Phaser.Scene {
 
   private tendCrop(item: WorldItem) {
     item.stage = Math.min((item.stage ?? 0) + 1, 3)
-    const colors = [0x5a3a24, 0x3d7d36, 0x79b947, 0xffc86b]
-    if (item.sprite instanceof Phaser.GameObjects.Rectangle) item.sprite.fillColor = colors[item.stage]
+    if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setTexture(`crop${item.stage}`)
     if (item.stage === 3) {
       this.inv.blooms++
       this.total.blooms++
       item.stage = 0
-      this.time.delayedCall(250, () => { if (item.sprite instanceof Phaser.GameObjects.Rectangle) item.sprite.fillColor = colors[0] })
+      this.time.delayedCall(250, () => { if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setTexture('crop0') })
       this.say('+1 bloom. Garden delivered.')
     } else {
       this.say(item.stage === 1 ? 'Seeds planted.' : 'Watered. Almost blooming.')
@@ -463,48 +472,33 @@ class Bb2DScene extends Phaser.Scene {
 
   private memory(x: number, y: number, title: string, message: string) {
     const c = this.add.container(x, y)
-    c.add(this.add.rectangle(0, 0, 122, 58, 0x2b203a).setStrokeStyle(2, 0xffc6e9))
-    c.add(this.add.text(0, -10, title, { fontFamily: 'monospace', fontSize: '12px', color: '#ffe7a8', align: 'center' }).setOrigin(0.5))
-    c.add(this.add.text(0, 12, 'press E', { fontFamily: 'monospace', fontSize: '10px', color: '#ffd7ed' }).setOrigin(0.5))
+    c.add(this.add.image(0, 0, 'memory-sign'))
+    c.add(this.add.text(0, -11, title, { fontFamily: 'monospace', fontSize: '12px', color: '#fff3ba', align: 'center' }).setOrigin(0.5))
+    c.add(this.add.text(0, 13, 'press E', { fontFamily: 'monospace', fontSize: '10px', color: '#ffd7ed' }).setOrigin(0.5))
     this.items.push({ kind: 'memory', name: title, zone: new Phaser.Geom.Rectangle(x - 61, y - 29, 122, 58), sprite: c, message })
   }
 
   private tree(x: number, y: number) {
-    const c = this.add.container(x, y)
-    c.add(this.add.rectangle(0, 18, 12, 30, 0x6b4324))
-    c.add(this.add.circle(0, 0, 28, 0x214f35).setStrokeStyle(2, 0x153824))
-    c.add(this.add.circle(-15, 6, 16, 0x2f6b42))
-    c.add(this.add.circle(15, 8, 17, 0x2f6b42))
-    return c
+    return this.add.image(x, y, 'tree')
   }
 
   private flower(x: number, y: number) {
-    const c = this.add.container(x, y)
-    c.add(this.add.rectangle(0, 16, 4, 22, 0x3d7d36))
-    c.add(this.add.circle(0, 0, 10, 0xff91ce))
-    c.add(this.add.circle(-9, 2, 7, 0xffd1e9))
-    c.add(this.add.circle(9, 2, 7, 0xffd1e9))
-    return c
+    return this.add.image(x, y, 'herb')
   }
 
-  private person(x: number, y: number, skin: number, hairColor: number, shirt: number, badge: string) {
+  private person(x: number, y: number, _skin: number, _hairColor: number, _shirt: number, badge: string) {
     const p = this.add.container(x, y)
-    p.add(this.add.ellipse(0, 19, 30, 10, 0x000000, 0.25))
-    p.add(this.add.rectangle(0, 4, 24, 30, shirt).setStrokeStyle(2, 0x0b0e13))
-    p.add(this.add.circle(0, -18, 13, skin).setStrokeStyle(2, 0x2a1711))
-    p.add(this.add.rectangle(0, -28, 23, 9, hairColor))
-    p.add(this.add.text(0, 3, badge, { fontFamily: 'monospace', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5))
+    p.add(this.add.ellipse(0, 21, 34, 12, 0x000000, 0.22))
+    p.add(this.add.image(0, 0, badge === 'B' ? 'wife' : 'player'))
     if (badge === 'B') this.items.push({ kind: 'wife', name: 'B', zone: new Phaser.Geom.Rectangle(x - 28, y - 42, 56, 76) })
     return p
   }
 
-  private cat(x: number, y: number, color: number, name: string) {
+  private cat(x: number, y: number, _color: number, name: string) {
     const c = this.add.container(x, y)
-    c.add(this.add.ellipse(0, 10, 36, 20, color))
-    c.add(this.add.circle(18, 2, 12, color))
-    c.add(this.add.triangle(12, -8, 0, 0, 8, -12, 16, 0, color))
-    c.add(this.add.triangle(24, -8, 0, 0, 8, -12, 16, 0, color))
-    c.add(this.add.text(-20, 25, name, { fontFamily: 'monospace', fontSize: '10px', color: '#fff' }))
+    c.add(this.add.ellipse(22, 28, 38, 9, 0x000000, 0.18))
+    c.add(this.add.image(20, 12, name === 'Pengu' ? 'cat-pengu' : 'cat-mila'))
+    c.add(this.add.text(0, 36, name, { fontFamily: 'monospace', fontSize: '10px', color: '#fff' }))
     return c
   }
 
