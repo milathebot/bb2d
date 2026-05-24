@@ -125,7 +125,8 @@ class Bb2DScene extends Phaser.Scene {
       'university','dj-booth','skyline','kitchen','pond-detail','garden-bed','forest-detail','home-detail','lamp','bench',
       'tile-grass','tile-forest','tile-dirt','tile-water','tile-wood','heart-decor','home-rug',
       'water-sheet','water-ripple','waterfall','farm-soil0','farm-soil1','farm-tool',
-      'farm-crop0','farm-crop1','farm-crop2','farm-crop3','farm-crop4','farm-crop5'
+      'farm-crop0','farm-crop1','farm-crop2','farm-crop3','farm-crop4','farm-crop5',
+      'map-ground','terrain-grass','terrain-path','terrain-dirt','terrain-grass-detail','terrain-dirt-round'
     ].forEach(name => this.load.image(`cozy-${name}`, `gif/${name}.png`))
   }
 
@@ -206,9 +207,6 @@ class Bb2DScene extends Phaser.Scene {
     return this.add.image(x, y, `cozy-${name}`).setScale(scale)
   }
 
-  private tiled(name: string, x: number, y: number, w: number, h: number, scale = 2, alpha = 1) {
-    return this.add.tileSprite(x + w / 2, y + h / 2, w, h, `cozy-${name}`).setTileScale(scale).setAlpha(alpha).setDepth(-1)
-  }
 
   private block(x: number, y: number, w: number, h: number) {
     this.blockers.push(new Phaser.Geom.Rectangle(x - w / 2, y - h / 2, w, h))
@@ -233,52 +231,41 @@ class Bb2DScene extends Phaser.Scene {
     return s
   }
 
-  private zone(x: number, y: number, w: number, h: number, color: number, label: string, lx: number, ly: number) {
-    this.add.rectangle(x + w / 2, y + h / 2, w, h, color, 0.10).setStrokeStyle(2, 0xfff1bd, 0.10).setDepth(1)
+  private zone(_x: number, _y: number, _w: number, _h: number, _color: number, label: string, lx: number, ly: number) {
     this.sign(lx, ly, label)
   }
 
   private path(points: [number, number][]) {
-    const g = this.add.graphics().setDepth(1)
-    g.lineStyle(40, 0x8a6842, 0.22)
-    g.beginPath()
-    g.moveTo(points[0][0], points[0][1])
-    points.slice(1).forEach(([x, y]) => g.lineTo(x, y))
-    g.strokePath()
-    g.lineStyle(24, 0xd2b07c, 0.35)
-    g.beginPath()
-    g.moveTo(points[0][0], points[0][1])
-    points.slice(1).forEach(([x, y]) => g.lineTo(x, y))
-    g.strokePath()
+    const stamp = (x: number, y: number) => {
+      for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+        if (Math.abs(ox) + Math.abs(oy) > 2) continue
+        this.add.image(Math.round(x / 32) * 32 + ox * 32, Math.round(y / 32) * 32 + oy * 32, 'cozy-terrain-path').setScale(2).setDepth(0)
+      }
+    }
+    for (let i = 0; i < points.length - 1; i++) {
+      const [x1, y1] = points[i]
+      const [x2, y2] = points[i + 1]
+      const dist = Phaser.Math.Distance.Between(x1, y1, x2, y2)
+      const steps = Math.max(1, Math.floor(dist / 18))
+      for (let j = 0; j <= steps; j++) stamp(Phaser.Math.Linear(x1, x2, j / steps), Phaser.Math.Linear(y1, y2, j / steps))
+    }
   }
 
   private drawWorld() {
-    const g = this.add.graphics().setDepth(-4)
-    g.fillGradientStyle(0x10231d, 0x142820, 0x2c573f, 0x214335, 1)
-    g.fillRect(0, 0, WORLD_W, WORLD_H)
+    this.add.image(WORLD_W / 2, WORLD_H / 2, 'cozy-map-ground').setDepth(-4)
 
-    // Base ground plus uneven terrain patches so the world stops reading as wallpaper.
-    this.tiled('tile-grass', 0, 64, WORLD_W, WORLD_H - 64, 2.7, 0.50)
-    ;[
-      ['tile-forest', 40, 120, 760, 560, 2.5, 0.74],
-      ['tile-dirt', 1230, 1075, 850, 470, 2.2, 0.66],
-      ['tile-wood', 1690, 1100, 610, 420, 2.15, 0.52],
-      ['tile-dirt', 650, 1240, 540, 280, 2.1, 0.38],
-      ['tile-forest', 980, 260, 520, 330, 2.4, 0.40],
-    ].forEach(([name, x, y, w, h, sc, a]) => this.tiled(name as string, x as number, y as number, w as number, h as number, sc as number, a as number))
+    // Actual path tiles from the pack, not semi-transparent strokes.
+    this.path([[1950, 1330], [1780, 1300], [1600, 1315], [1450, 1300], [1310, 1280], [1120, 1070], [1010, 900], [910, 770], [760, 570], [610, 390]])
+    this.path([[1010, 900], [1260, 770], [1460, 610], [1700, 430], [1930, 340]])
+    this.path([[1320, 1290], [950, 1350], [650, 1450], [455, 1415]])
+    this.path([[760, 570], [910, 365], [1080, 300], [1240, 360]])
+    this.path([[1780, 1300], [1900, 1060], [2070, 860], [2195, 710]])
+    this.path([[1450, 1300], [1620, 1230], [1840, 1235]])
 
-    // Real water sheets from the pack, not a blue rectangle pretending to be a pond.
-    this.add.tileSprite(1970, 315, 640, 390, 'cozy-water-sheet').setTileScale(2.4).setDepth(0).setAlpha(0.95)
-    this.add.tileSprite(1970, 315, 600, 350, 'cozy-water-ripple').setTileScale(3.5).setDepth(1).setAlpha(0.35)
+    // Lake is painted with water tiles in map-ground; this adds animated/detail water assets only.
+    this.add.tileSprite(1970, 315, 560, 320, 'cozy-water-ripple').setTileScale(3.5).setDepth(1).setAlpha(0.65)
     this.asset('waterfall', 1695, 210, 2.2).setDepth(3)
     this.block(1970, 315, 650, 390)
-
-    // Navigable path network with detours. Areas are scattered, home+garden are paired.
-    this.path([[1920, 1325], [1650, 1320], [1420, 1290], [1180, 1110], [995, 870], [845, 580], [600, 390]])
-    this.path([[995, 870], [1240, 760], [1460, 600], [1705, 420], [1910, 320]])
-    this.path([[1180, 1110], [860, 1260], [620, 1395], [430, 1440]])
-    this.path([[845, 580], [1030, 350], [1270, 360]])
-    this.path([[1650, 1320], [1860, 1030], [2055, 850], [2210, 690]])
 
     this.zone(70, 135, 670, 500, 0x183f2d, 'Moon Forest', 190, 178)
     this.asset('forest-detail', 390, 405, 1.9).setDepth(3)
@@ -292,27 +279,27 @@ class Bb2DScene extends Phaser.Scene {
     this.block(1888, 522, 210, 38)
     this.blockingAsset('bench', 2180, 488, 1.25, 74, 32, 8).setDepth(4)
 
-    this.zone(1290, 1110, 410, 360, 0x7b5935, 'Garden', 1390, 1148)
+    this.zone(1240, 1160, 430, 340, 0x7b5935, 'Garden', 1345, 1198)
     this.asset('garden-bed', 1492, 1308, 2.35).setDepth(2)
     this.blockingAsset('lamp', 1345, 1188, 1.25, 32, 34, 12).setDepth(4)
     this.blockingAsset('farm-tool', 1640, 1192, 1.25, 34, 34, 0).setDepth(4)
 
-    this.zone(1720, 1120, 580, 390, 0x7d6042, 'Home Base', 1848, 1160)
+    this.zone(1800, 1120, 560, 390, 0x7d6042, 'Home Base', 1908, 1160)
     this.blockingAsset('house', 1920, 1240, 1.75, 142, 96, 28).setDepth(4)
     this.blockingAsset('home-detail', 2095, 1320, 1.95, 110, 66, 18).setDepth(4)
     this.asset('home-rug', 1835, 1400, 1.25).setDepth(4)
     this.blockingAsset('bench', 1745, 1430, 1.2, 72, 32, 8).setDepth(4)
     this.blockingAsset('lamp', 2210, 1385, 1.25, 32, 34, 12).setDepth(4)
 
-    this.zone(910, 720, 440, 340, 0x44376a, 'Memory Shrine', 1000, 760)
-    this.blockingAsset('shrine', 1160, 890, 1.65, 86, 70, 18).setDepth(4)
-    this.asset('heart-decor', 1065, 940, 0.9).setDepth(4)
-    this.blockingAsset('lamp', 960, 950, 1.05, 28, 32, 10).setDepth(4)
-    this.blockingAsset('lamp', 1305, 950, 1.05, 28, 32, 10).setDepth(4)
+    this.zone(1120, 760, 420, 320, 0x44376a, 'Memory Shrine', 1210, 800)
+    this.blockingAsset('shrine', 1330, 920, 1.65, 86, 70, 18).setDepth(4)
+    this.asset('heart-decor', 1235, 970, 0.9).setDepth(4)
+    this.blockingAsset('lamp', 1130, 980, 1.05, 28, 32, 10).setDepth(4)
+    this.blockingAsset('lamp', 1475, 980, 1.05, 28, 32, 10).setDepth(4)
 
-    this.zone(760, 160, 480, 300, 0x324b66, 'University', 885, 202)
+    this.zone(790, 160, 480, 300, 0x324b66, 'University', 915, 202)
     this.blockingAsset('university', 1005, 345, 1.55, 170, 92, 28).setDepth(3)
-    this.add.rectangle(1010, 425, 360, 18, 0xb8c7d9, 0.35).setDepth(3)
+    ;[[870, 424], [935, 424], [1000, 424], [1065, 424], [1130, 424]].forEach(([x, y]) => this.add.image(x, y, 'cozy-terrain-path').setScale(2).setDepth(3))
     ;[[830,410],[1170,410],[795,250],[1210,250]].forEach(([x,y]) => this.blockingAsset('lamp', x, y, 0.95, 26, 30, 10).setDepth(4))
 
     this.zone(235, 1280, 460, 260, 0x5d3768, 'Rave Night', 350, 1320)
@@ -322,24 +309,24 @@ class Bb2DScene extends Phaser.Scene {
       this.tweens.add({ targets: beam, alpha: 0.08, yoyo: true, repeat: -1, duration: 900 + i * 160 })
     })
 
-    this.zone(2020, 610, 350, 300, 0x6a5130, 'Dubai → Canada', 2115, 650)
-    this.blockingAsset('skyline', 2210, 770, 1.45, 120, 62, 18).setDepth(3)
-    this.add.text(2180, 900, 'same team, new skyline', { fontFamily: 'monospace', fontSize: '13px', color: '#fff3ba', stroke: '#2a1a1e', strokeThickness: 3 }).setOrigin(0.5).setDepth(5)
+    this.zone(2020, 630, 350, 280, 0x6a5130, 'Dubai → Canada', 2115, 670)
+    this.blockingAsset('skyline', 2210, 790, 1.45, 120, 62, 18).setDepth(3)
+    this.add.text(2180, 920, 'same team, new skyline', { fontFamily: 'monospace', fontSize: '13px', color: '#fff3ba', stroke: '#2a1a1e', strokeThickness: 3 }).setOrigin(0.5).setDepth(5)
 
-    this.zone(1050, 300, 360, 260, 0x315b62, 'Kitchen Date', 1145, 338)
-    this.blockingAsset('kitchen', 1250, 455, 1.85, 90, 62, 16).setDepth(4)
-    this.asset('heart-decor', 1110, 475, 0.85).setDepth(4)
+    this.zone(1295, 250, 320, 250, 0x315b62, 'Kitchen Date', 1385, 288)
+    this.blockingAsset('kitchen', 1490, 405, 1.85, 90, 62, 16).setDepth(4)
+    this.asset('heart-decor', 1355, 425, 0.85).setDepth(4)
 
-    this.zone(1160, 560, 320, 220, 0x315b46, 'Cat Grove', 1240, 595)
-    this.blockingAsset('tree2', 1310, 705, 1.25, 54, 42, 18).setDepth(4)
-    this.asset('heart-decor', 1215, 700, 0.72).setDepth(4)
+    this.zone(760, 720, 320, 220, 0x315b46, 'Cat Grove', 840, 755)
+    this.blockingAsset('tree2', 910, 865, 1.25, 54, 42, 18).setDepth(4)
+    this.asset('heart-decor', 815, 860, 0.72).setDepth(4)
 
     for (let i = 0; i < 75; i++) {
       const dot = this.add.circle(Phaser.Math.Between(90, WORLD_W - 90), Phaser.Math.Between(120, WORLD_H - 90), Phaser.Math.Between(1, 3), 0xffe58a, Phaser.Math.FloatBetween(0.16, 0.45)).setDepth(6)
       this.fireflies.push(dot)
     }
 
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i < 12; i++) {
       const x = Phaser.Math.Between(45, WORLD_W - 45)
       const y = Phaser.Utils.Array.GetRandom([105, WORLD_H - 54, Phaser.Math.Between(640, 1040)])
       if ((x > 1180 && y > 1060) || (x > 1630 && y < 580)) continue
@@ -371,15 +358,15 @@ class Bb2DScene extends Phaser.Scene {
     }
 
     this.items.push({ kind: 'pond', name: 'fishing dock', zone: new Phaser.Geom.Rectangle(1640, 110, 670, 460), cooldown: 0 })
-    this.items.push({ kind: 'puzzle', name: 'match-3 memory shrine', zone: new Phaser.Geom.Rectangle(910, 720, 440, 340) })
-    this.items.push({ kind: 'house', name: 'home base', zone: new Phaser.Geom.Rectangle(1720, 1120, 580, 390) })
+    this.items.push({ kind: 'puzzle', name: 'match-3 memory shrine', zone: new Phaser.Geom.Rectangle(1120, 760, 420, 320) })
+    this.items.push({ kind: 'house', name: 'home base', zone: new Phaser.Geom.Rectangle(1800, 1120, 560, 390) })
 
     this.memory(1005, 345, 'University', 'Years of almost, then timing finally got smart.')
     this.memory(480, 1420, 'Rave Night', 'Somebody bumped you together. Best collision physics ever.')
-    this.memory(2210, 770, 'Dubai Year', 'New city, new rhythm, same team.')
+    this.memory(2210, 790, 'Dubai Year', 'New city, new rhythm, same team.')
     this.memory(1920, 1240, 'Canada Home', 'Back home, building the next chapter soft and loud.')
-    this.memory(1250, 455, 'Kitchen Date', 'Food, wellness, cats, and somehow exactly the right life.')
-    this.memory(1295, 700, 'Pengu & Mila', 'Two tiny supervisors joined the build and immediately improved management.')
+    this.memory(1490, 405, 'Kitchen Date', 'Food, wellness, cats, and somehow exactly the right life.')
+    this.memory(910, 865, 'Pengu & Mila', 'Two tiny supervisors joined the build and immediately improved management.')
   }
 
   private addCharacters() {
@@ -411,7 +398,7 @@ class Bb2DScene extends Phaser.Scene {
     this.overlay.add(this.add.text(480, 108, 'Bb2D', { fontFamily: 'monospace', fontSize: '58px', color: '#ffe7a8' }).setOrigin(0.5).setScrollFactor(0))
     this.overlay.add(this.add.text(480, 164, 'A tiny cozy game about building home together.', { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0))
     this.overlay.add(this.add.text(480, 268,
-      'You are B. Wander the paths, collect memories,\nfish at the pond, grow the garden, decorate your home,\nand bring Pengu and Mila along for the ending.\n\nMove: WASD/arrows   E: interact   F: fish   P: puzzle   B: decorate\n\nPress Enter or Space to start.',
+      'Have a wonderful adventure BB <3. Wandr the paths, collect memories,\ngather resources, solve the shrine puzzle, grow flowers,\ndecorate home, unlock Pengu and Mila,\nand talk to Noot when the house feels ready.\n\nMove: WASD/arrows   E: interact   F: fish   P: puzzle   B: decorate\n\nPress Enter or Space to start.',
       { fontFamily: 'monospace', fontSize: '16px', color: '#dfffe1', align: 'center', lineSpacing: 8 }
     ).setOrigin(0.5).setScrollFactor(0))
   }
@@ -765,14 +752,14 @@ class Bb2DScene extends Phaser.Scene {
     const areas: [string, Phaser.Geom.Rectangle][] = [
       ['Moon Forest', new Phaser.Geom.Rectangle(70, 135, 670, 500)],
       ['Quiet Pond', new Phaser.Geom.Rectangle(1640, 110, 670, 460)],
-      ['Garden', new Phaser.Geom.Rectangle(1290, 1110, 410, 360)],
-      ['Home Base', new Phaser.Geom.Rectangle(1720, 1120, 580, 390)],
-      ['Memory Shrine', new Phaser.Geom.Rectangle(910, 720, 440, 340)],
-      ['University', new Phaser.Geom.Rectangle(760, 160, 480, 300)],
+      ['Garden', new Phaser.Geom.Rectangle(1240, 1160, 430, 340)],
+      ['Home Base', new Phaser.Geom.Rectangle(1800, 1120, 560, 390)],
+      ['Memory Shrine', new Phaser.Geom.Rectangle(1120, 760, 420, 320)],
+      ['University', new Phaser.Geom.Rectangle(790, 160, 480, 300)],
       ['Rave Night', new Phaser.Geom.Rectangle(235, 1280, 460, 260)],
-      ['Dubai → Canada', new Phaser.Geom.Rectangle(2020, 610, 350, 300)],
-      ['Kitchen Date', new Phaser.Geom.Rectangle(1050, 300, 360, 260)],
-      ['Cat Grove', new Phaser.Geom.Rectangle(1160, 560, 320, 220)],
+      ['Dubai → Canada', new Phaser.Geom.Rectangle(2020, 630, 350, 280)],
+      ['Kitchen Date', new Phaser.Geom.Rectangle(1295, 250, 320, 250)],
+      ['Cat Grove', new Phaser.Geom.Rectangle(760, 720, 320, 220)],
     ]
     const area = areas.find(([, r]) => Phaser.Geom.Rectangle.Contains(r, p.x, p.y))?.[0] ?? 'Wandering the soft little world'
     this.areaLabel.setText(area)
@@ -805,14 +792,14 @@ class Bb2DScene extends Phaser.Scene {
     const areas: [Phaser.Geom.Rectangle, number][] = [
       [new Phaser.Geom.Rectangle(70, 135, 670, 500), 0x2e8a55],
       [new Phaser.Geom.Rectangle(1640, 110, 670, 460), 0x47b9d6],
-      [new Phaser.Geom.Rectangle(1290, 1110, 410, 360), 0xc58a4b],
-      [new Phaser.Geom.Rectangle(1720, 1120, 580, 390), 0xffd37a],
-      [new Phaser.Geom.Rectangle(910, 720, 440, 340), 0xb38cff],
-      [new Phaser.Geom.Rectangle(760, 160, 480, 300), 0x9fc7ff],
+      [new Phaser.Geom.Rectangle(1240, 1160, 430, 340), 0xc58a4b],
+      [new Phaser.Geom.Rectangle(1800, 1120, 560, 390), 0xffd37a],
+      [new Phaser.Geom.Rectangle(1120, 760, 420, 320), 0xb38cff],
+      [new Phaser.Geom.Rectangle(790, 160, 480, 300), 0x9fc7ff],
       [new Phaser.Geom.Rectangle(235, 1280, 460, 260), 0xff69b4],
-      [new Phaser.Geom.Rectangle(2020, 610, 350, 300), 0xffc36e],
-      [new Phaser.Geom.Rectangle(1050, 300, 360, 260), 0x8fe6d1],
-      [new Phaser.Geom.Rectangle(1160, 560, 320, 220), 0x9cdeb5],
+      [new Phaser.Geom.Rectangle(2020, 630, 350, 280), 0xffc36e],
+      [new Phaser.Geom.Rectangle(1295, 250, 320, 250), 0x8fe6d1],
+      [new Phaser.Geom.Rectangle(760, 720, 320, 220), 0x9cdeb5],
     ]
     areas.forEach(([r, color]) => {
       m.fillStyle(color, 0.55)
