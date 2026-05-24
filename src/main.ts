@@ -316,6 +316,7 @@ class Bb2DScene extends Phaser.Scene {
     this.zone(70, 135, 670, 500, 0x183f2d, 'Moon Forest', 190, 178)
     this.asset('forest-detail', 390, 405, 1.9).setDepth(3)
     ;[[145,235],[245,520],[390,245],[560,355],[655,545],[300,390],[690,205],[105,520]].forEach(([x,y]) => this.blockingAsset('tree', x, y, 1.15, 52, 46, 20).setDepth(4))
+    this.asset('bench', 515, 205, 1.05).setDepth(4)
     this.add.text(500, 190, 'quiet trail', { fontFamily: 'monospace', fontSize: '13px', color: '#dfffe1', stroke: '#122019', strokeThickness: 3 }).setDepth(5)
 
     this.zone(1640, 110, 670, 460, 0x1f6880, 'Quiet Pond', 1760, 154)
@@ -324,9 +325,11 @@ class Bb2DScene extends Phaser.Scene {
     this.asset('dock', 1988, 466, 1.04).setDepth(4)
     this.add.text(1988, 535, 'fish from the dock', { fontFamily: 'monospace', fontSize: '12px', color: '#fff3ba', stroke: '#2a1a1e', strokeThickness: 3 }).setOrigin(0.5).setDepth(5)
     this.blockingAsset('bench', 2180, 488, 1.25, 74, 32, 8).setDepth(4)
+    this.asset('lamp', 1838, 525, 0.95).setDepth(4)
 
     this.zone(1240, 1160, 430, 340, 0x7b5935, 'Garden', 1345, 1198)
     this.asset('garden-bed', 1492, 1308, 2.35).setDepth(2)
+    this.asset('garden-bed', 1374, 1395, 1.7).setDepth(2)
     this.blockingAsset('lamp', 1345, 1188, 1.25, 32, 34, 12).setDepth(4)
     this.blockingAsset('farm-tool', 1640, 1192, 1.25, 34, 34, 0).setDepth(4)
 
@@ -334,6 +337,7 @@ class Bb2DScene extends Phaser.Scene {
     this.blockingAsset('house', 1920, 1240, 1.75, 142, 96, 28).setDepth(4)
     this.blockingAsset('home-detail', 2095, 1320, 1.95, 110, 66, 18).setDepth(4)
     this.asset('home-rug', 1835, 1400, 1.25).setDepth(4)
+    this.asset('heart-decor', 2010, 1185, 0.82).setDepth(4)
     this.blockingAsset('bench', 1745, 1430, 1.2, 72, 32, 8).setDepth(4)
     this.blockingAsset('lamp', 2210, 1385, 1.25, 32, 34, 12).setDepth(4)
 
@@ -342,14 +346,17 @@ class Bb2DScene extends Phaser.Scene {
     this.asset('heart-decor', 1235, 970, 0.9).setDepth(4)
     this.blockingAsset('lamp', 1130, 980, 1.05, 28, 32, 10).setDepth(4)
     this.blockingAsset('lamp', 1475, 980, 1.05, 28, 32, 10).setDepth(4)
+    this.asset('memory-sparkle', 1330, 805, 0.72).setDepth(5)
 
     this.zone(790, 160, 480, 300, 0x324b66, 'University', 915, 202)
     this.blockingAsset('university', 1005, 345, 1.55, 170, 92, 28).setDepth(3)
     ;[[870, 424], [935, 424], [1000, 424], [1065, 424], [1130, 424]].forEach(([x, y]) => this.add.image(x, y, 'cozy-terrain-path').setScale(2).setDepth(3))
     ;[[830,410],[1170,410],[795,250],[1210,250]].forEach(([x,y]) => this.blockingAsset('lamp', x, y, 0.95, 26, 30, 10).setDepth(4))
+    this.blockingAsset('bench', 905, 455, 1.0, 58, 28, 8).setDepth(4)
 
     this.zone(235, 1280, 460, 260, 0x5d3768, 'Rave Night', 350, 1320)
     this.blockingAsset('dj-booth', 480, 1420, 1.65, 90, 50, 14).setDepth(4)
+    this.asset('home-rug', 480, 1492, 1.55).setDepth(3).setTint(0x6b4aa0)
     ;[[285,1380],[650,1380],[380,1300],[560,1300]].forEach(([x,y], i) => {
       const light = this.asset(i % 2 ? 'rave-light-blue' : 'rave-light-pink', x, y, 1).setDepth(3)
       light.setFlipX(i % 2 === 1)
@@ -358,15 +365,18 @@ class Bb2DScene extends Phaser.Scene {
 
     this.zone(2020, 630, 350, 280, 0x6a5130, 'Dubai → Canada', 2115, 670)
     this.blockingAsset('skyline', 2210, 790, 1.45, 120, 62, 18).setDepth(3)
+    this.asset('lamp', 2075, 835, 1.0).setDepth(4)
     this.add.text(2180, 920, 'same team, new skyline', { fontFamily: 'monospace', fontSize: '13px', color: '#fff3ba', stroke: '#2a1a1e', strokeThickness: 3 }).setOrigin(0.5).setDepth(5)
 
     this.zone(1295, 250, 320, 250, 0x315b62, 'Kitchen Date', 1385, 288)
     this.blockingAsset('kitchen', 1490, 405, 1.85, 90, 62, 16).setDepth(4)
     this.asset('heart-decor', 1355, 425, 0.85).setDepth(4)
+    this.asset('bench', 1420, 495, 1.05).setDepth(4)
 
     this.zone(760, 720, 320, 220, 0x315b46, 'Cat Grove', 840, 755)
     this.blockingAsset('tree2', 910, 865, 1.25, 54, 42, 18).setDepth(4)
     this.asset('heart-decor', 815, 860, 0.72).setDepth(4)
+    this.asset('bench', 1000, 810, 1.0).setDepth(4)
 
     for (let i = 0; i < 75; i++) {
       const dot = this.add.circle(Phaser.Math.Between(90, WORLD_W - 90), Phaser.Math.Between(120, WORLD_H - 90), Phaser.Math.Between(1, 3), 0xffe58a, Phaser.Math.FloatBetween(0.16, 0.45)).setDepth(6)
@@ -482,7 +492,7 @@ class Bb2DScene extends Phaser.Scene {
     card.add(this.add.text(0, -190, 'Bb2D', { fontFamily: 'monospace', fontSize: '62px', color: '#ffe7a8', stroke: '#21131a', strokeThickness: 6 }).setOrigin(0.5))
     card.add(this.add.text(0, -134, 'A tiny cozy adventure for BB.', { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5))
     card.add(this.add.text(0, -60,
-      'Have a wonderful adventure BB <3. Wandr the paths, collect memories,\ngather resources, solve the shrine puzzle, grow flowers,\ndecorate home, unlock Pengu and Mila,\nand talk to Noot when the house feels ready.',
+      'Have a wonderful adventure BB <3. Wander the paths, collect memories,\ngather resources, solve the shrine puzzle, grow flowers,\ndecorate home, unlock Pengu and Mila,\nand talk to Noot when the house feels ready.',
       { fontFamily: 'monospace', fontSize: '16px', color: '#dfffe1', align: 'center', lineSpacing: 8 }
     ).setOrigin(0.5))
     card.add(this.add.text(0, 205, 'Move: WASD/arrows or tap   E: interact   F: fish   P: puzzle   B: decorate', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd7ed' }).setOrigin(0.5))
