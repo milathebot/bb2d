@@ -113,6 +113,8 @@ class Bb2DScene extends Phaser.Scene {
   private pengu?: Phaser.GameObjects.Container
   private mila?: Phaser.GameObjects.Container
   private fireflies: Phaser.GameObjects.Arc[] = []
+  private blockers: Phaser.Geom.Rectangle[] = []
+  private minimap?: Phaser.GameObjects.Graphics
   private audio = new AudioKit()
 
   constructor() { super('bb2d') }
@@ -121,13 +123,16 @@ class Bb2DScene extends Phaser.Scene {
     ;[
       'player','noot','cat-pengu','cat-mila','tree','herb','crop0','crop1','crop2','crop3','house','shrine','sign','memory','decor','fish',
       'university','dj-booth','skyline','kitchen','pond-detail','garden-bed','forest-detail','home-detail','lamp','bench',
-      'tile-grass','tile-forest','tile-dirt','tile-water','tile-wood','heart-decor','home-rug'
+      'tile-grass','tile-forest','tile-dirt','tile-water','tile-wood','heart-decor','home-rug',
+      'water-sheet','water-ripple','waterfall','farm-soil0','farm-soil1','farm-tool',
+      'farm-crop0','farm-crop1','farm-crop2','farm-crop3','farm-crop4','farm-crop5'
     ].forEach(name => this.load.image(`cozy-${name}`, `gif/${name}.png`))
   }
 
   create() {
     this.items = []
     this.fireflies = []
+    this.blockers = []
     this.cameras.main.setBackgroundColor('#142820')
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H)
 
@@ -166,11 +171,14 @@ class Bb2DScene extends Phaser.Scene {
       this.playerSprite.y = 0
     }
 
-    this.player.x = Phaser.Math.Clamp(this.player.x + dx, 32, WORLD_W - 32)
-    this.player.y = Phaser.Math.Clamp(this.player.y + dy, 82, WORLD_H - 32)
+    const nextX = Phaser.Math.Clamp(this.player.x + dx, 32, WORLD_W - 32)
+    const nextY = Phaser.Math.Clamp(this.player.y + dy, 82, WORLD_H - 32)
+    if (!this.isBlocked(nextX, this.player.y)) this.player.x = nextX
+    if (!this.isBlocked(this.player.x, nextY)) this.player.y = nextY
     this.updatePrompt()
     this.updateAreaLabel()
     this.followCats(delta)
+    this.updateMinimap()
   }
 
 
@@ -202,9 +210,25 @@ class Bb2DScene extends Phaser.Scene {
     return this.add.tileSprite(x + w / 2, y + h / 2, w, h, `cozy-${name}`).setTileScale(scale).setAlpha(alpha).setDepth(-1)
   }
 
+  private block(x: number, y: number, w: number, h: number) {
+    this.blockers.push(new Phaser.Geom.Rectangle(x - w / 2, y - h / 2, w, h))
+  }
+
+  private blockingAsset(name: string, x: number, y: number, scale: number, blockW: number, blockH: number, blockYOffset = 0) {
+    const img = this.asset(name, x, y, scale)
+    this.block(x, y + blockYOffset, blockW, blockH)
+    return img
+  }
+
+  private isBlocked(x: number, y: number) {
+    const feet = new Phaser.Geom.Rectangle(x - 13, y + 3, 26, 18)
+    return this.blockers.some(b => Phaser.Geom.Intersects.RectangleToRectangle(feet, b))
+  }
+
   private sign(x: number, y: number, label: string) {
     const s = this.add.container(x, y).setDepth(4)
-    s.add(this.add.image(0, 0, 'cozy-sign').setScale(0.9))
+    s.add(this.add.image(0, 0, 'cozy-sign').setScale(1.15))
+    this.block(x, y + 6, 48, 34)
     s.add(this.add.text(0, -6, label, { fontFamily: 'monospace', fontSize: '11px', color: '#fff3ba', align: 'center', stroke: '#2a1a1e', strokeThickness: 3 }).setOrigin(0.5))
     return s
   }
@@ -232,83 +256,94 @@ class Bb2DScene extends Phaser.Scene {
     const g = this.add.graphics().setDepth(-4)
     g.fillGradientStyle(0x10231d, 0x142820, 0x2c573f, 0x214335, 1)
     g.fillRect(0, 0, WORLD_W, WORLD_H)
-    this.tiled('tile-grass', 0, 64, WORLD_W, WORLD_H - 64, 2.5, 0.72)
 
-    this.add.tileSprite(1925, 340, 620, 380, 'cozy-tile-water').setTileScale(3).setDepth(0).setAlpha(0.86)
-    this.add.ellipse(1925, 340, 650, 410, 0x1e6d86, 0.33).setDepth(0)
-    this.tiled('tile-dirt', 222, 1080, 710, 390, 2.3, 0.62)
-    this.tiled('tile-wood', 1740, 1130, 590, 390, 2.2, 0.46)
-    this.tiled('tile-forest', 60, 120, 720, 520, 2.5, 0.70)
+    // Base ground plus uneven terrain patches so the world stops reading as wallpaper.
+    this.tiled('tile-grass', 0, 64, WORLD_W, WORLD_H - 64, 2.7, 0.50)
+    ;[
+      ['tile-forest', 40, 120, 760, 560, 2.5, 0.74],
+      ['tile-dirt', 1230, 1075, 850, 470, 2.2, 0.66],
+      ['tile-wood', 1690, 1100, 610, 420, 2.15, 0.52],
+      ['tile-dirt', 650, 1240, 540, 280, 2.1, 0.38],
+      ['tile-forest', 980, 260, 520, 330, 2.4, 0.40],
+    ].forEach(([name, x, y, w, h, sc, a]) => this.tiled(name as string, x as number, y as number, w as number, h as number, sc as number, a as number))
 
-    this.path([[1985, 1230], [1700, 1210], [1470, 1295], [1110, 1320], [760, 1240], [500, 1215]])
-    this.path([[1985, 1230], [1845, 870], [1560, 760], [1210, 850], [960, 1010]])
-    this.path([[1560, 760], [1440, 520], [1120, 330], [835, 305], [500, 360]])
-    this.path([[1560, 760], [1740, 560], [1950, 365]])
+    // Real water sheets from the pack, not a blue rectangle pretending to be a pond.
+    this.add.tileSprite(1970, 315, 640, 390, 'cozy-water-sheet').setTileScale(2.4).setDepth(0).setAlpha(0.95)
+    this.add.tileSprite(1970, 315, 600, 350, 'cozy-water-ripple').setTileScale(3.5).setDepth(1).setAlpha(0.35)
+    this.asset('waterfall', 1695, 210, 2.2).setDepth(3)
+    this.block(1970, 315, 650, 390)
+
+    // Navigable path network with detours. Areas are scattered, home+garden are paired.
+    this.path([[1920, 1325], [1650, 1320], [1420, 1290], [1180, 1110], [995, 870], [845, 580], [600, 390]])
+    this.path([[995, 870], [1240, 760], [1460, 600], [1705, 420], [1910, 320]])
+    this.path([[1180, 1110], [860, 1260], [620, 1395], [430, 1440]])
+    this.path([[845, 580], [1030, 350], [1270, 360]])
+    this.path([[1650, 1320], [1860, 1030], [2055, 850], [2210, 690]])
 
     this.zone(70, 135, 670, 500, 0x183f2d, 'Moon Forest', 190, 178)
-    this.asset('forest-detail', 390, 405, 1.8).setDepth(3)
-    ;[[145,235],[245,520],[390,245],[560,355],[655,545],[300,390],[690,205],[105,520]].forEach(([x,y]) => this.asset('tree', x, y, 0.9).setDepth(4))
+    this.asset('forest-detail', 390, 405, 1.9).setDepth(3)
+    ;[[145,235],[245,520],[390,245],[560,355],[655,545],[300,390],[690,205],[105,520]].forEach(([x,y]) => this.blockingAsset('tree', x, y, 1.15, 52, 46, 20).setDepth(4))
     this.add.text(500, 190, 'quiet trail', { fontFamily: 'monospace', fontSize: '13px', color: '#dfffe1', stroke: '#122019', strokeThickness: 3 }).setDepth(5)
 
-    this.zone(1640, 130, 630, 430, 0x1f6880, 'Quiet Pond', 1760, 174)
-    this.asset('pond-detail', 1950, 350, 2.25).setDepth(3)
-    this.add.rectangle(1905, 525, 190, 30, 0x9a7044, 0.95).setDepth(4)
-    this.add.rectangle(1905, 524, 160, 12, 0xd3a66b, 0.95).setDepth(4)
-    this.asset('bench', 2160, 490, 1).setDepth(4)
-    ;[[1715,500],[1785,525],[2075,195],[2185,235]].forEach(([x,y]) => this.asset('herb', x, y, 0.9).setDepth(4))
+    this.zone(1640, 110, 670, 460, 0x1f6880, 'Quiet Pond', 1760, 154)
+    this.asset('pond-detail', 2020, 360, 2.2).setDepth(3)
+    this.add.rectangle(1888, 522, 205, 34, 0x9a7044, 0.95).setDepth(4)
+    this.add.rectangle(1888, 521, 170, 14, 0xd3a66b, 0.95).setDepth(4)
+    this.block(1888, 522, 210, 38)
+    this.blockingAsset('bench', 2180, 488, 1.25, 74, 32, 8).setDepth(4)
 
-    this.zone(220, 1080, 640, 380, 0x7b5935, 'Garden', 330, 1115)
-    this.asset('garden-bed', 540, 1285, 2.3).setDepth(2)
-    this.asset('lamp', 790, 1168, 0.85).setDepth(4)
-    this.asset('bench', 295, 1400, 0.85).setDepth(4)
+    this.zone(1290, 1110, 410, 360, 0x7b5935, 'Garden', 1390, 1148)
+    this.asset('garden-bed', 1492, 1308, 2.35).setDepth(2)
+    this.blockingAsset('lamp', 1345, 1188, 1.25, 32, 34, 12).setDepth(4)
+    this.blockingAsset('farm-tool', 1640, 1192, 1.25, 34, 34, 0).setDepth(4)
 
-    this.zone(1710, 1110, 570, 390, 0x7d6042, 'Home Base', 1840, 1150)
-    this.asset('house', 1920, 1240, 1.35).setDepth(4)
-    this.asset('home-detail', 2070, 1310, 1.75).setDepth(4)
-    this.asset('home-rug', 1845, 1385, 1.05).setDepth(4)
-    this.asset('bench', 1745, 1430, 0.9).setDepth(4)
-    this.asset('lamp', 2210, 1375, 0.9).setDepth(4)
+    this.zone(1720, 1120, 580, 390, 0x7d6042, 'Home Base', 1848, 1160)
+    this.blockingAsset('house', 1920, 1240, 1.75, 142, 96, 28).setDepth(4)
+    this.blockingAsset('home-detail', 2095, 1320, 1.95, 110, 66, 18).setDepth(4)
+    this.asset('home-rug', 1835, 1400, 1.25).setDepth(4)
+    this.blockingAsset('bench', 1745, 1430, 1.2, 72, 32, 8).setDepth(4)
+    this.blockingAsset('lamp', 2210, 1385, 1.25, 32, 34, 12).setDepth(4)
 
-    this.zone(1000, 700, 420, 320, 0x44376a, 'Memory Shrine', 1085, 740)
-    this.asset('shrine', 1210, 860, 1.45).setDepth(4)
-    this.asset('heart-decor', 1120, 925, 0.8).setDepth(4)
-    this.asset('lamp', 1045, 940, 0.75).setDepth(4)
-    this.asset('lamp', 1360, 940, 0.75).setDepth(4)
+    this.zone(910, 720, 440, 340, 0x44376a, 'Memory Shrine', 1000, 760)
+    this.blockingAsset('shrine', 1160, 890, 1.65, 86, 70, 18).setDepth(4)
+    this.asset('heart-decor', 1065, 940, 0.9).setDepth(4)
+    this.blockingAsset('lamp', 960, 950, 1.05, 28, 32, 10).setDepth(4)
+    this.blockingAsset('lamp', 1305, 950, 1.05, 28, 32, 10).setDepth(4)
 
     this.zone(760, 160, 480, 300, 0x324b66, 'University', 885, 202)
-    this.asset('university', 1005, 345, 1.35).setDepth(3)
+    this.blockingAsset('university', 1005, 345, 1.55, 170, 92, 28).setDepth(3)
     this.add.rectangle(1010, 425, 360, 18, 0xb8c7d9, 0.35).setDepth(3)
-    ;[[830,410],[1170,410],[795,250],[1210,250]].forEach(([x,y]) => this.asset('lamp', x, y, 0.62).setDepth(4))
+    ;[[830,410],[1170,410],[795,250],[1210,250]].forEach(([x,y]) => this.blockingAsset('lamp', x, y, 0.95, 26, 30, 10).setDepth(4))
 
-    this.zone(845, 1180, 510, 290, 0x5d3768, 'Rave Night', 960, 1220)
-    this.asset('dj-booth', 1115, 1320, 1.45).setDepth(4)
-    ;[[910,1290],[1300,1290],[1060,1215],[1205,1215]].forEach(([x,y], i) => {
-      const beam = this.add.triangle(x, y, 0, 0, i % 2 ? -55 : 55, 110, i % 2 ? 45 : -45, 110, i % 2 ? 0x61d4ff : 0xff69b4, 0.24).setDepth(3)
+    this.zone(235, 1280, 460, 260, 0x5d3768, 'Rave Night', 350, 1320)
+    this.blockingAsset('dj-booth', 480, 1420, 1.65, 90, 50, 14).setDepth(4)
+    ;[[285,1380],[650,1380],[380,1300],[560,1300]].forEach(([x,y], i) => {
+      const beam = this.add.triangle(x, y, 0, 0, i % 2 ? -55 : 55, 115, i % 2 ? 45 : -45, 115, i % 2 ? 0x61d4ff : 0xff69b4, 0.24).setDepth(3)
       this.tweens.add({ targets: beam, alpha: 0.08, yoyo: true, repeat: -1, duration: 900 + i * 160 })
     })
 
-    this.zone(1730, 620, 520, 300, 0x6a5130, 'Dubai → Canada', 1855, 660)
-    this.asset('skyline', 1995, 770, 1.35).setDepth(3)
-    this.add.text(1985, 900, 'same team, new skyline', { fontFamily: 'monospace', fontSize: '13px', color: '#fff3ba', stroke: '#2a1a1e', strokeThickness: 3 }).setOrigin(0.5).setDepth(5)
+    this.zone(2020, 610, 350, 300, 0x6a5130, 'Dubai → Canada', 2115, 650)
+    this.blockingAsset('skyline', 2210, 770, 1.45, 120, 62, 18).setDepth(3)
+    this.add.text(2180, 900, 'same team, new skyline', { fontFamily: 'monospace', fontSize: '13px', color: '#fff3ba', stroke: '#2a1a1e', strokeThickness: 3 }).setOrigin(0.5).setDepth(5)
 
-    this.zone(1320, 1185, 350, 250, 0x315b62, 'Kitchen Date', 1415, 1220)
-    this.asset('kitchen', 1505, 1322, 1.55).setDepth(4)
-    this.asset('heart-decor', 1390, 1350, 0.72).setDepth(4)
+    this.zone(1050, 300, 360, 260, 0x315b62, 'Kitchen Date', 1145, 338)
+    this.blockingAsset('kitchen', 1250, 455, 1.85, 90, 62, 16).setDepth(4)
+    this.asset('heart-decor', 1110, 475, 0.85).setDepth(4)
 
-    this.zone(1160, 310, 320, 220, 0x315b46, 'Cat Grove', 1240, 345)
-    this.asset('tree2', 1310, 455, 1.05).setDepth(4)
-    this.asset('heart-decor', 1215, 452, 0.62).setDepth(4)
+    this.zone(1160, 560, 320, 220, 0x315b46, 'Cat Grove', 1240, 595)
+    this.blockingAsset('tree2', 1310, 705, 1.25, 54, 42, 18).setDepth(4)
+    this.asset('heart-decor', 1215, 700, 0.72).setDepth(4)
 
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < 75; i++) {
       const dot = this.add.circle(Phaser.Math.Between(90, WORLD_W - 90), Phaser.Math.Between(120, WORLD_H - 90), Phaser.Math.Between(1, 3), 0xffe58a, Phaser.Math.FloatBetween(0.16, 0.45)).setDepth(6)
       this.fireflies.push(dot)
     }
 
-    for (let i = 0; i < 42; i++) {
+    for (let i = 0; i < 34; i++) {
       const x = Phaser.Math.Between(45, WORLD_W - 45)
       const y = Phaser.Utils.Array.GetRandom([105, WORLD_H - 54, Phaser.Math.Between(640, 1040)])
-      if (x > 1600 && y > 1060) continue
-      this.asset(Phaser.Math.Between(0, 1) ? 'tree' : 'tree2', x, y, Phaser.Math.FloatBetween(0.6, 0.88)).setAlpha(0.78).setDepth(2)
+      if ((x > 1180 && y > 1060) || (x > 1630 && y < 580)) continue
+      this.blockingAsset(Phaser.Math.Between(0, 1) ? 'tree' : 'tree2', x, y, Phaser.Math.FloatBetween(0.72, 1.0), 44, 36, 18).setAlpha(0.78).setDepth(2)
     }
   }
 
@@ -319,7 +354,7 @@ class Bb2DScene extends Phaser.Scene {
     ]
     treeSpots.forEach(([x, y]) => {
       const sprite = this.tree(x, y)
-      this.items.push({ kind: 'tree', name: 'soft pine', zone: new Phaser.Geom.Rectangle(x - 34, y - 48, 68, 90), cooldown: 0, sprite })
+      this.items.push({ kind: 'tree', name: 'soft pine', zone: new Phaser.Geom.Rectangle(x - 38, y - 52, 76, 96), cooldown: 0, sprite })
     })
 
     ;[[540,535],[350,410],[180,565],[1110,940],[1340,930],[1460,1360],[1790,505],[2150,260],[700,1210],[650,1380]].forEach(([x, y]) => {
@@ -327,29 +362,29 @@ class Bb2DScene extends Phaser.Scene {
       this.items.push({ kind: 'herb', name: 'wellness herbs', zone: new Phaser.Geom.Rectangle(x - 30, y - 30, 60, 60), cooldown: 0, sprite })
     })
 
-    for (let i = 0; i < 10; i++) {
-      const x = 340 + (i % 5) * 92
-      const y = 1225 + Math.floor(i / 5) * 74
-      const crop = this.asset('crop0', x, y, 1.15)
-      this.add.ellipse(x, y + 26, 60, 12, 0x3d291b, 0.38).setDepth(2)
-      this.items.push({ kind: 'crop', name: 'garden plot', zone: new Phaser.Geom.Rectangle(x - 36, y - 32, 72, 64), sprite: crop, stage: 0 })
+    for (let i = 0; i < 12; i++) {
+      const x = 1375 + (i % 4) * 78
+      const y = 1245 + Math.floor(i / 4) * 66
+      this.asset(i % 2 ? 'farm-soil1' : 'farm-soil0', x, y + 12, 1.18).setDepth(2)
+      const crop = this.asset('farm-crop0', x, y, 1.45).setDepth(4)
+      this.items.push({ kind: 'crop', name: 'farm plot', zone: new Phaser.Geom.Rectangle(x - 34, y - 30, 68, 62), sprite: crop, stage: 0 })
     }
 
-    this.items.push({ kind: 'pond', name: 'fishing dock', zone: new Phaser.Geom.Rectangle(1640, 130, 630, 430), cooldown: 0 })
-    this.items.push({ kind: 'puzzle', name: 'match-3 memory shrine', zone: new Phaser.Geom.Rectangle(1000, 700, 420, 320) })
-    this.items.push({ kind: 'house', name: 'home base', zone: new Phaser.Geom.Rectangle(1710, 1110, 570, 390) })
+    this.items.push({ kind: 'pond', name: 'fishing dock', zone: new Phaser.Geom.Rectangle(1640, 110, 670, 460), cooldown: 0 })
+    this.items.push({ kind: 'puzzle', name: 'match-3 memory shrine', zone: new Phaser.Geom.Rectangle(910, 720, 440, 340) })
+    this.items.push({ kind: 'house', name: 'home base', zone: new Phaser.Geom.Rectangle(1720, 1120, 580, 390) })
 
     this.memory(1005, 345, 'University', 'Years of almost, then timing finally got smart.')
-    this.memory(1115, 1320, 'Rave Night', 'Somebody bumped you together. Best collision physics ever.')
-    this.memory(1995, 770, 'Dubai Year', 'New city, new rhythm, same team.')
+    this.memory(480, 1420, 'Rave Night', 'Somebody bumped you together. Best collision physics ever.')
+    this.memory(2210, 770, 'Dubai Year', 'New city, new rhythm, same team.')
     this.memory(1920, 1240, 'Canada Home', 'Back home, building the next chapter soft and loud.')
-    this.memory(1505, 1322, 'Kitchen Date', 'Food, wellness, cats, and somehow exactly the right life.')
-    this.memory(1295, 452, 'Pengu & Mila', 'Two tiny supervisors joined the build and immediately improved management.')
+    this.memory(1250, 455, 'Kitchen Date', 'Food, wellness, cats, and somehow exactly the right life.')
+    this.memory(1295, 700, 'Pengu & Mila', 'Two tiny supervisors joined the build and immediately improved management.')
   }
 
   private addCharacters() {
-    this.person(1965, 1235, 0xb87555, 0x17110f, 0x1d2430, 'Noot')
-    this.player = this.person(1865, 1345, 0xf7d7bd, 0x2a201e, 0xff91ce, 'B')
+    this.person(1995, 1335, 0xb87555, 0x17110f, 0x1d2430, 'Noot')
+    this.player = this.person(1855, 1375, 0xf7d7bd, 0x2a201e, 0xff91ce, 'B')
     this.pengu = this.cat(-90, -90, 0xb88955, 'Pengu')
     this.mila = this.cat(-90, -90, 0xd9cbb7, 'Mila')
     this.pengu.setVisible(false)
@@ -364,8 +399,10 @@ class Bb2DScene extends Phaser.Scene {
     this.areaLabel = this.fixed(this.add.text(16, 62, '', { fontFamily: 'monospace', fontSize: '13px', color: '#ffe7a8', backgroundColor: '#0e1816bb', padding: { x: 8, y: 5 } }))
     this.prompt = this.fixed(this.add.text(16, 586, '', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff', backgroundColor: '#10201cdd', padding: { x: 8, y: 6 } }))
     this.toast = this.fixed(this.add.text(480, 78, '', { fontFamily: 'monospace', fontSize: '15px', color: '#fff0c8', backgroundColor: '#21170ddd', padding: { x: 10, y: 6 }, align: 'center' }).setOrigin(0.5))
+    this.minimap = this.fixed(this.add.graphics())
     this.refreshUI()
     this.updateAreaLabel()
+    this.updateMinimap()
   }
 
   private showIntro() {
@@ -417,18 +454,19 @@ class Bb2DScene extends Phaser.Scene {
   }
 
   private tendCrop(item: WorldItem) {
-    item.stage = Math.min((item.stage ?? 0) + 1, 3)
-    if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setTexture(`cozy-crop${item.stage}`)
-    if (item.stage === 3) {
+    item.stage = Math.min((item.stage ?? 0) + 1, 5)
+    if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setTexture(`cozy-farm-crop${item.stage}`)
+    if (item.stage === 5) {
       this.audio.blip('gather')
       this.inv.blooms++
       this.total.blooms++
       item.stage = 0
-      this.time.delayedCall(250, () => { if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setTexture('cozy-crop0') })
-      this.floatText(item.sprite ?? this.player, '+bloom')
-      this.say('+1 bloom. Garden delivered.')
+      this.time.delayedCall(350, () => { if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setTexture('cozy-farm-crop0') })
+      this.floatText(item.sprite ?? this.player, '+harvest')
+      this.say('+1 bloom. Proper farming system, finally.')
     } else {
-      this.say(item.stage === 1 ? 'Seeds planted.' : 'Watered. Almost blooming.')
+      const steps = ['Soil hoed.', 'Seeds planted.', 'Watered.', 'Sprouting.', 'Almost harvestable.']
+      this.say(steps[item.stage - 1] ?? 'Growing.')
     }
     this.refreshUI()
   }
@@ -726,15 +764,15 @@ class Bb2DScene extends Phaser.Scene {
     const p = this.player
     const areas: [string, Phaser.Geom.Rectangle][] = [
       ['Moon Forest', new Phaser.Geom.Rectangle(70, 135, 670, 500)],
-      ['Quiet Pond', new Phaser.Geom.Rectangle(1640, 130, 630, 430)],
-      ['Garden', new Phaser.Geom.Rectangle(220, 1080, 640, 380)],
-      ['Home Base', new Phaser.Geom.Rectangle(1710, 1110, 570, 390)],
-      ['Memory Shrine', new Phaser.Geom.Rectangle(1000, 700, 420, 320)],
+      ['Quiet Pond', new Phaser.Geom.Rectangle(1640, 110, 670, 460)],
+      ['Garden', new Phaser.Geom.Rectangle(1290, 1110, 410, 360)],
+      ['Home Base', new Phaser.Geom.Rectangle(1720, 1120, 580, 390)],
+      ['Memory Shrine', new Phaser.Geom.Rectangle(910, 720, 440, 340)],
       ['University', new Phaser.Geom.Rectangle(760, 160, 480, 300)],
-      ['Rave Night', new Phaser.Geom.Rectangle(845, 1180, 510, 290)],
-      ['Dubai → Canada', new Phaser.Geom.Rectangle(1730, 620, 520, 300)],
-      ['Kitchen Date', new Phaser.Geom.Rectangle(1320, 1185, 350, 250)],
-      ['Cat Grove', new Phaser.Geom.Rectangle(1160, 310, 320, 220)],
+      ['Rave Night', new Phaser.Geom.Rectangle(235, 1280, 460, 260)],
+      ['Dubai → Canada', new Phaser.Geom.Rectangle(2020, 610, 350, 300)],
+      ['Kitchen Date', new Phaser.Geom.Rectangle(1050, 300, 360, 260)],
+      ['Cat Grove', new Phaser.Geom.Rectangle(1160, 560, 320, 220)],
     ]
     const area = areas.find(([, r]) => Phaser.Geom.Rectangle.Contains(r, p.x, p.y))?.[0] ?? 'Wandering the soft little world'
     this.areaLabel.setText(area)
@@ -748,6 +786,43 @@ class Bb2DScene extends Phaser.Scene {
     if (this.inv.hearts < GOAL.hearts) return 'solve shrine matches'
     if (this.decorPlaced < GOAL.decorPlaced) return 'decorate Home Base'
     return missing[0] ?? 'talk to Noot'
+  }
+
+  private updateMinimap() {
+    if (!this.minimap) return
+    const m = this.minimap
+    const x = 786
+    const y = 82
+    const w = 150
+    const h = 100
+    const sx = w / WORLD_W
+    const sy = h / WORLD_H
+    m.clear()
+    m.fillStyle(0x0e1816, 0.86)
+    m.fillRoundedRect(x, y, w, h, 8)
+    m.lineStyle(2, 0xffe7a8, 0.65)
+    m.strokeRoundedRect(x, y, w, h, 8)
+    const areas: [Phaser.Geom.Rectangle, number][] = [
+      [new Phaser.Geom.Rectangle(70, 135, 670, 500), 0x2e8a55],
+      [new Phaser.Geom.Rectangle(1640, 110, 670, 460), 0x47b9d6],
+      [new Phaser.Geom.Rectangle(1290, 1110, 410, 360), 0xc58a4b],
+      [new Phaser.Geom.Rectangle(1720, 1120, 580, 390), 0xffd37a],
+      [new Phaser.Geom.Rectangle(910, 720, 440, 340), 0xb38cff],
+      [new Phaser.Geom.Rectangle(760, 160, 480, 300), 0x9fc7ff],
+      [new Phaser.Geom.Rectangle(235, 1280, 460, 260), 0xff69b4],
+      [new Phaser.Geom.Rectangle(2020, 610, 350, 300), 0xffc36e],
+      [new Phaser.Geom.Rectangle(1050, 300, 360, 260), 0x8fe6d1],
+      [new Phaser.Geom.Rectangle(1160, 560, 320, 220), 0x9cdeb5],
+    ]
+    areas.forEach(([r, color]) => {
+      m.fillStyle(color, 0.55)
+      m.fillRect(x + r.x * sx, y + r.y * sy, Math.max(3, r.width * sx), Math.max(3, r.height * sy))
+    })
+    const cam = this.cameras.main.worldView
+    m.lineStyle(1, 0xffffff, 0.75)
+    m.strokeRect(x + cam.x * sx, y + cam.y * sy, cam.width * sx, cam.height * sy)
+    m.fillStyle(0xff91ce, 1)
+    m.fillCircle(x + this.player.x * sx, y + this.player.y * sy, 3)
   }
 
   private refreshUI() {
@@ -794,20 +869,21 @@ class Bb2DScene extends Phaser.Scene {
   private person(x: number, y: number, _skin: number, _hairColor: number, _shirt: number, badge: string) {
     const p = this.add.container(x, y).setDepth(10)
     p.add(this.add.ellipse(0, 19, 30, 10, 0x000000, 0.22))
-    const sprite = this.add.image(0, 0, badge === 'B' ? 'cozy-player' : 'cozy-noot').setScale(1)
+    const sprite = this.add.image(0, 0, badge === 'B' ? 'cozy-player' : 'cozy-noot').setScale(1.65)
     p.add(sprite)
     if (badge === 'B') this.playerSprite = sprite
     if (badge === 'Noot') {
       p.add(this.add.text(0, -42, 'Noot', { fontFamily: 'monospace', fontSize: '12px', color: '#ffd7ed', stroke: '#21131a', strokeThickness: 3 }).setOrigin(0.5))
-      this.items.push({ kind: 'wife', name: 'Noot', zone: new Phaser.Geom.Rectangle(x - 40, y - 52, 80, 104) })
+      this.items.push({ kind: 'wife', name: 'Noot', zone: new Phaser.Geom.Rectangle(x - 48, y - 62, 96, 124) })
+      this.block(x, y + 10, 34, 24)
     }
     return p
   }
 
   private cat(x: number, y: number, _color: number, name: string) {
     const c = this.add.container(x, y).setDepth(9)
-    c.add(this.add.ellipse(2, 13, 24, 7, 0x000000, 0.18))
-    const pet = this.add.image(0, 0, name === 'Pengu' ? 'cozy-cat-pengu' : 'cozy-cat-mila').setScale(1)
+    c.add(this.add.ellipse(2, 18, 32, 9, 0x000000, 0.18))
+    const pet = this.add.image(0, 0, name === 'Pengu' ? 'cozy-cat-pengu' : 'cozy-cat-mila').setScale(1.45)
     c.add(pet)
     c.add(this.add.text(-16, 22, name, { fontFamily: 'monospace', fontSize: '10px', color: '#fff', stroke: '#1b1112', strokeThickness: 3 }))
     return c
