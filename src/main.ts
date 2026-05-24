@@ -25,11 +25,28 @@ type Inventory = {
   memories: number
 }
 
+type SaveState = {
+  inv: Inventory
+  total: { wood: number, herbs: number, fish: number, blooms: number }
+  decorPlaced: number
+  collected: string[]
+  cropStages: number[]
+}
+
+type Chapter = {
+  n: number
+  title: string
+  objective: string
+  hint: string
+}
+
+const SAVE_KEY = 'bb2d-save-v1'
+
 const VIEW_W = 960
 const VIEW_H = 640
 const WORLD_W = 2400
 const WORLD_H = 1600
-const GOAL = { wood: 10, herbs: 6, fish: 5, blooms: 6, hearts: 7, decorPlaced: 9, memories: 6 }
+const GOAL = { wood: 6, herbs: 4, fish: 3, blooms: 4, hearts: 7, decorPlaced: 6, memories: 6 }
 
 class AudioKit {
   private ctx?: AudioContext
@@ -117,6 +134,8 @@ class Bb2DScene extends Phaser.Scene {
   private blockers: Phaser.Geom.Rectangle[] = []
   private minimap?: Phaser.GameObjects.Graphics
   private moveTarget?: Phaser.Math.Vector2
+  private lastChapter = -1
+  private loadedFromSave = false
   private audio = new AudioKit()
 
   constructor() { super('bb2d') }
@@ -143,6 +162,7 @@ class Bb2DScene extends Phaser.Scene {
     this.drawWorld()
     this.addInteractiveItems()
     this.addCharacters()
+    this.loadState()
     this.addUI()
     this.bindControls()
 
@@ -197,7 +217,7 @@ class Bb2DScene extends Phaser.Scene {
 
   private bindControls() {
     this.cursors = this.input.keyboard!.createCursorKeys()
-    this.keys = this.input.keyboard!.addKeys('W,A,S,D,E,F,P,B,R,ENTER,SPACE,ESC') as Record<string, Phaser.Input.Keyboard.Key>
+    this.keys = this.input.keyboard!.addKeys('W,A,S,D,E,F,P,B,R,H,ENTER,SPACE,ESC') as Record<string, Phaser.Input.Keyboard.Key>
     this.input.keyboard!.on('keydown-ENTER', () => this.dismissOverlay())
     this.input.keyboard!.on('keydown-SPACE', () => this.dismissOverlay())
     this.input.keyboard!.on('keydown-E', () => this.interact())
@@ -205,6 +225,7 @@ class Bb2DScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-P', () => this.openPuzzle())
     this.input.keyboard!.on('keydown-B', () => this.decorate())
     this.input.keyboard!.on('keydown-R', () => this.restartGame())
+    this.input.keyboard!.on('keydown-H', () => this.showJournal())
     this.input.keyboard!.on('keydown-ESC', () => this.closePuzzle())
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.gameStarted || this.inPuzzle || this.endingShown) return
@@ -415,7 +436,8 @@ class Bb2DScene extends Phaser.Scene {
       ['E', 680, () => this.interact()],
       ['F', 742, () => this.fish()],
       ['P', 804, () => this.openPuzzle()],
-      ['B', 866, () => this.decorate()],
+      ['B', 848, () => this.decorate()],
+      ['H', 906, () => this.showJournal()],
     ]
     buttons.forEach(([label, x, action]) => {
       const bg = this.fixed(this.add.rectangle(x, 594, 48, 48, 0x21170d, 0.82).setStrokeStyle(2, 0xffe7a8, 0.85).setInteractive({ useHandCursor: true }))
@@ -451,7 +473,7 @@ class Bb2DScene extends Phaser.Scene {
       { fontFamily: 'monospace', fontSize: '16px', color: '#dfffe1', align: 'center', lineSpacing: 8 }
     ).setOrigin(0.5))
     card.add(this.add.text(0, 205, 'Move: WASD/arrows or tap   E: interact   F: fish   P: puzzle   B: decorate', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd7ed' }).setOrigin(0.5))
-    const start = this.add.text(0, 248, 'Press Enter or Space to start', { fontFamily: 'monospace', fontSize: '18px', color: '#ffe7a8', backgroundColor: '#21170ddd', padding: { x: 14, y: 8 } }).setOrigin(0.5)
+    const start = this.add.text(0, 248, this.loadedFromSave ? 'Press Enter or Space to continue' : 'Press Enter or Space to start', { fontFamily: 'monospace', fontSize: '18px', color: '#ffe7a8', backgroundColor: '#21170ddd', padding: { x: 14, y: 8 } }).setOrigin(0.5)
     card.add(start)
     this.overlay.add(card)
     this.tweens.add({ targets: start, alpha: 0.62, yoyo: true, repeat: -1, duration: 900 })
@@ -467,7 +489,7 @@ class Bb2DScene extends Phaser.Scene {
       this.audio.start()
       this.audio.blip('start')
       this.gameStarted = true
-      this.say('Loop: gather, fish, garden, puzzle, decorate, collect memories, then talk to Noot.')
+      this.say(this.currentChapter().hint)
     }
   }
 
@@ -485,6 +507,7 @@ class Bb2DScene extends Phaser.Scene {
   }
 
   private gather(item: WorldItem, res: 'wood' | 'herbs') {
+    if (this.currentChapter().n < 1) return this.say('First: find a sparkling memory. Then Pengu will approve forestry.')
     const now = this.time.now
     if ((item.cooldown ?? 0) > now) return this.say(res === 'wood' ? 'This tree needs a breather.' : 'Those herbs need a moment to regrow.')
     this.audio.blip('gather')
@@ -494,10 +517,13 @@ class Bb2DScene extends Phaser.Scene {
     this.pulse(item.sprite)
     this.floatText(item.sprite ?? this.player, res === 'wood' ? '+wood' : '+herb')
     this.say(res === 'wood' ? '+1 wood. Future furniture, obviously.' : '+1 herb. Wellness inventory upgraded.')
+    this.advanceChapter()
+    this.saveState()
     this.refreshUI()
   }
 
   private tendCrop(item: WorldItem) {
+    if (this.currentChapter().n < 3) return this.say('The garden unlocks after the pond chapter. Very linear, very professional.')
     item.stage = Math.min((item.stage ?? 0) + 1, 5)
     if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setTexture(`cozy-farm-crop${item.stage}`)
     if (item.stage === 5) {
@@ -512,11 +538,14 @@ class Bb2DScene extends Phaser.Scene {
       const steps = ['Soil hoed.', 'Seeds planted.', 'Watered.', 'Sprouting.', 'Almost harvestable.']
       this.say(steps[item.stage - 1] ?? 'Growing.')
     }
+    this.advanceChapter()
+    this.saveState()
     this.refreshUI()
   }
 
   private fish() {
     if (!this.gameStarted || this.endingShown) return
+    if (this.currentChapter().n < 2) return this.say('Pond later. Pengu wants forest supplies first.')
     const item = this.nearItem('pond')
     if (!item) return this.say('Stand by the pond and press F to fish.')
     const now = this.time.now
@@ -528,6 +557,8 @@ class Bb2DScene extends Phaser.Scene {
     const fishIcon = this.add.image(this.player.x + 12, this.player.y - 42, 'cozy-fish').setDepth(20)
     this.tweens.add({ targets: fishIcon, y: fishIcon.y - 28, alpha: 0, duration: 900, onComplete: () => fishIcon.destroy() })
     this.say('+1 fish. Quiet pond, good luck.')
+    this.advanceChapter()
+    this.saveState()
     this.refreshUI()
   }
 
@@ -542,6 +573,8 @@ class Bb2DScene extends Phaser.Scene {
     this.say(`${item.name} remembered. +1 heart.`)
     this.showMemoryCard(item.name, item.message ?? '')
     this.checkUnlocks()
+    this.advanceChapter()
+    this.saveState()
     this.refreshUI()
   }
 
@@ -556,6 +589,7 @@ class Bb2DScene extends Phaser.Scene {
 
   private decorate() {
     if (!this.gameStarted || this.endingShown) return
+    if (this.currentChapter().n < 5) return this.say('Home decorating unlocks after the shrine starts giving decor.')
     if (!this.nearItem('house')) return this.say('Decorating happens at home. Press B inside the base.')
     if (this.decorPlaced >= GOAL.decorPlaced) return this.say('The home is fully decorated. Talk to Noot when the goals are done.')
     if (this.inv.decor <= 0 && (this.inv.wood < 2 || this.inv.herbs < 1 || this.inv.fish < 1)) {
@@ -565,15 +599,17 @@ class Bb2DScene extends Phaser.Scene {
     else { this.inv.wood -= 2; this.inv.herbs--; this.inv.fish-- }
     this.audio.blip('decorate')
     this.decorPlaced++
-    const spots = [[1785,1235],[1845,1210],[1915,1290],[2010,1260],[2115,1340],[1775,1405],[1870,1430],[2045,1425],[2200,1450]]
-    const [x, y] = spots[this.decorPlaced - 1]
-    this.asset('decor', x, y, 0.9).setDepth(5)
+    this.placeDecor(this.decorPlaced)
+    this.warmHome()
     this.say(`Decoration ${this.decorPlaced}/${GOAL.decorPlaced} placed.`)
+    this.advanceChapter()
+    this.saveState()
     this.refreshUI()
   }
 
   private openPuzzle() {
     if (!this.gameStarted || this.endingShown) return
+    if (this.currentChapter().n < 4) return this.say('The shrine wakes up after the garden blooms.')
     if (!this.nearItem('puzzle')) return this.say('Go to the Memory Shrine and press P or E.')
     if (this.inPuzzle) return
     this.inPuzzle = true
@@ -656,10 +692,13 @@ class Bb2DScene extends Phaser.Scene {
     const collapseAndRefill = () => {
       const { matched, count } = findMatches()
       if (!count) return false
+      const matchedIcons: string[] = []
       for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) if (matched[r][c]) {
+        matchedIcons.push(cells[r][c])
         board[r][c].setText('✨')
         this.tweens.add({ targets: board[r][c], scale: 1.3, alpha: 0.4, yoyo: true, duration: 120 })
       }
+      rewardMatch(matchedIcons)
       this.time.delayedCall(180, () => {
         for (let c = 0; c < size; c++) {
           const kept: string[] = []
@@ -681,13 +720,25 @@ class Bb2DScene extends Phaser.Scene {
       })
       return true
     }
-    const rewardMatch = () => {
+    const rewardMatch = (matchedIcons: string[]) => {
       this.audio.blip('puzzle')
-      this.inv.decor++
-      this.inv.hearts++
+      const unique = [...new Set(matchedIcons)]
+      const awards: string[] = []
+      const bonus = matchedIcons.length >= 4 ? 1 : 0
+      unique.forEach(icon => {
+        if (icon === '🌲') { this.inv.wood += 1 + bonus; this.total.wood += 1 + bonus; awards.push(`+${1 + bonus} wood`) }
+        else if (icon === '🐟') { this.inv.fish += 1 + bonus; this.total.fish += 1 + bonus; awards.push(`+${1 + bonus} fish`) }
+        else if (icon === '🌸') { this.inv.blooms += 1 + bonus; this.total.blooms += 1 + bonus; awards.push(`+${1 + bonus} bloom`) }
+        else if (icon === '🥟') { this.inv.herbs += 1 + bonus; this.total.herbs += 1 + bonus; this.inv.decor++; awards.push(`+${1 + bonus} herb`, '+1 decor') }
+        else if (icon === '🎧') { this.inv.decor += 1 + bonus; awards.push(`+${1 + bonus} decor`) }
+        else if (icon === '🐾') { this.inv.hearts += 1 + bonus; awards.push(`+${1 + bonus} heart`) }
+      })
+      if (!awards.length) { this.inv.decor++; awards.push('+1 decor') }
       this.checkUnlocks()
+      this.advanceChapter()
+      this.saveState()
       this.refreshUI()
-      this.say('Memory match made. +1 decor, +1 heart.')
+      this.say(`Match reward: ${awards.slice(0, 3).join(', ')}${awards.length > 3 ? '...' : ''}`)
     }
 
     fillFreshBoard()
@@ -729,7 +780,6 @@ class Bb2DScene extends Phaser.Scene {
           }
           resolving = true
           clearSelection()
-          rewardMatch()
           collapseAndRefill()
         }
         bg.on('pointerdown', click)
@@ -810,7 +860,7 @@ class Bb2DScene extends Phaser.Scene {
 
   private updatePrompt() {
     const item = this.nearItem()
-    const base = 'WASD/arrows or tap to move  E interact  F fish  P puzzle  B decorate  R restart'
+    const base = 'WASD/arrows/tap move  E interact  F fish  P puzzle  B decorate  H journal  R reset'
     this.prompt.setText(item ? `${base}\nNear: ${item.name}` : base)
   }
 
@@ -832,14 +882,89 @@ class Bb2DScene extends Phaser.Scene {
     this.areaLabel.setText(area)
   }
 
-  private nextObjective(missing: string[]) {
-    if (this.inv.memories < GOAL.memories) return 'collect memory cards'
-    if (this.total.wood < GOAL.wood || this.total.herbs < GOAL.herbs) return 'gather forest resources'
-    if (this.total.fish < GOAL.fish) return 'fish at Quiet Pond'
-    if (this.total.blooms < GOAL.blooms) return 'grow Garden blooms'
-    if (this.inv.hearts < GOAL.hearts) return 'solve shrine matches'
-    if (this.decorPlaced < GOAL.decorPlaced) return 'decorate Home Base'
-    return missing[0] ?? 'talk to Noot'
+  private currentChapter(): Chapter {
+    const missing = this.missingGoals()
+    if (!missing.length) return { n: 6, title: 'Finale: Home Complete', objective: 'Talk to Noot at Home Base.', hint: 'Everything is ready. Go talk to Noot at Home Base.' }
+    if (this.inv.memories < 1) return { n: 0, title: 'Chapter 1: First Spark', objective: 'Find and collect any sparkling memory.', hint: 'Follow a sparkle marker and press E to collect the first memory.' }
+    if (this.total.wood < 4 || this.total.herbs < 2) return { n: 1, title: 'Chapter 2: Pengu’s Forest Errand', objective: `Gather forest supplies: wood ${Math.min(this.total.wood, 4)}/4, herbs ${Math.min(this.total.herbs, 2)}/2.`, hint: 'Pengu is awake. Gather wood and herbs in Moon Forest.' }
+    if (this.total.fish < 2) return { n: 2, title: 'Chapter 3: Quiet Pond', objective: `Catch fish at the dock: ${Math.min(this.total.fish, 2)}/2.`, hint: 'The pond is open. Stand by the dock and press F.' }
+    if (this.total.blooms < 2) return { n: 3, title: 'Chapter 4: Garden Bloom', objective: `Grow two blooms in the garden: ${Math.min(this.total.blooms, 2)}/2.`, hint: 'The garden is ready. Tend crops until they bloom.' }
+    if (this.inv.decor < 2 || this.inv.hearts < 4) return { n: 4, title: 'Chapter 5: Shrine Puzzle', objective: `Solve shrine matches for warmth: hearts ${Math.min(this.inv.hearts, 4)}/4, decor tokens ${Math.min(this.inv.decor, 2)}/2.`, hint: 'The shrine is awake. Match icons to earn useful rewards.' }
+    return { n: 5, title: 'Chapter 6: Make It Home', objective: `Collect remaining memories and decorate: decor ${this.decorPlaced}/${GOAL.decorPlaced}, memories ${this.inv.memories}/${GOAL.memories}.`, hint: 'Now finish the house. Collect any remaining memories and place decor at Home Base.' }
+  }
+
+  private advanceChapter() {
+    const chapter = this.currentChapter()
+    if (chapter.n > this.lastChapter) {
+      this.lastChapter = chapter.n
+      this.say(`${chapter.title}: ${chapter.hint}`)
+      this.audio.blip(chapter.n >= 6 ? 'ending' : 'memory')
+    }
+  }
+
+  private showJournal() {
+    if (this.overlay && this.overlay.name === 'journal') { this.overlay.destroy(true); this.overlay = undefined; return }
+    if (this.overlay && this.overlay.name !== 'intro') return
+    const ch = this.currentChapter()
+    const missing = this.missingGoals()
+    const journal = this.add.container(0, 0).setName('journal').setScrollFactor(0).setDepth(125)
+    journal.add(this.add.rectangle(480, 320, 720, 430, 0x08090d, 0.94).setStrokeStyle(3, 0xffe7a8).setScrollFactor(0))
+    journal.add(this.add.text(480, 150, ch.title, { fontFamily: 'monospace', fontSize: '26px', color: '#ffe7a8' }).setOrigin(0.5).setScrollFactor(0))
+    journal.add(this.add.text(480, 212, ch.objective, { fontFamily: 'monospace', fontSize: '17px', color: '#ffffff', align: 'center', wordWrap: { width: 610 } }).setOrigin(0.5).setScrollFactor(0))
+    journal.add(this.add.text(480, 292, `Full ending needs: ${missing.length ? missing.slice(0, 6).join(', ') : 'nothing. Go talk to Noot.'}`, { fontFamily: 'monospace', fontSize: '14px', color: '#dfffe1', align: 'center', wordWrap: { width: 620 } }).setOrigin(0.5).setScrollFactor(0))
+    journal.add(this.add.text(480, 394, 'Press H to close. Press R for a new run.', { fontFamily: 'monospace', fontSize: '14px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
+    this.overlay = journal
+  }
+
+  private placeDecor(index: number) {
+    const spots = [[1785,1235],[1845,1210],[1915,1290],[2010,1260],[2115,1340],[1775,1405],[1870,1430],[2045,1425],[2200,1450]]
+    const [x, y] = spots[index - 1] ?? spots[spots.length - 1]
+    this.asset('decor', x, y, 0.9).setDepth(5)
+  }
+
+  private warmHome() {
+    if (this.decorPlaced % 2 !== 0 && this.decorPlaced < GOAL.decorPlaced) return
+    const burst = this.add.image(1920, 1210, 'cozy-memory-sparkle').setScale(this.decorPlaced >= GOAL.decorPlaced ? 2.2 : 1.35).setDepth(8)
+    this.tweens.add({ targets: burst, scale: burst.scaleX + 0.7, alpha: 0, duration: 900, onComplete: () => burst.destroy() })
+    if (this.decorPlaced >= GOAL.decorPlaced) this.say('Home is glowing. Mm. That is the point.')
+  }
+
+  private saveState() {
+    const state: SaveState = {
+      inv: { ...this.inv },
+      total: { ...this.total },
+      decorPlaced: this.decorPlaced,
+      collected: this.items.filter(i => i.kind === 'memory' && i.collected).map(i => i.name),
+      cropStages: this.items.filter(i => i.kind === 'crop').map(i => i.stage ?? 0),
+    }
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)) } catch {}
+  }
+
+  private loadState() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY)
+      if (!raw) return
+      const state = JSON.parse(raw) as SaveState
+      this.inv = { ...this.inv, ...state.inv }
+      this.total = { ...this.total, ...state.total }
+      this.decorPlaced = Math.min(state.decorPlaced ?? 0, GOAL.decorPlaced)
+      const collected = new Set(state.collected ?? [])
+      this.items.filter(i => i.kind === 'memory').forEach(i => {
+        if (!collected.has(i.name)) return
+        i.collected = true
+        if (i.sprite instanceof Phaser.GameObjects.Container) i.sprite.setAlpha(0.55)
+        i.marker?.destroy()
+      })
+      this.items.filter(i => i.kind === 'crop').forEach((i, idx) => {
+        i.stage = state.cropStages?.[idx] ?? 0
+        if (i.sprite instanceof Phaser.GameObjects.Image) i.sprite.setTexture(`cozy-farm-crop${i.stage}`)
+      })
+      for (let i = 1; i <= this.decorPlaced; i++) this.placeDecor(i)
+      if (this.inv.hearts >= 1) this.pengu?.setVisible(true)
+      if (this.inv.hearts >= 3) this.mila?.setVisible(true)
+      this.lastChapter = this.currentChapter().n
+      this.loadedFromSave = true
+    } catch { localStorage.removeItem(SAVE_KEY) }
   }
 
   private updateMinimap() {
@@ -880,10 +1005,9 @@ class Bb2DScene extends Phaser.Scene {
   }
 
   private refreshUI() {
-    this.ui.setText(`Wood ${this.total.wood}/${GOAL.wood}  Herb ${this.total.herbs}/${GOAL.herbs}  Fish ${this.total.fish}/${GOAL.fish}  Bloom ${this.total.blooms}/${GOAL.blooms}  ♡ ${this.inv.hearts}/${GOAL.hearts}  Decor ${this.decorPlaced}/${GOAL.decorPlaced}  Mem ${this.inv.memories}/${GOAL.memories}`)
-    const missing = this.missingGoals()
-    const next = this.nextObjective(missing)
-    this.objective.setText(missing.length ? `Next: ${next}\nNeed: ${missing.slice(0, 2).join(', ')}` : 'Ready: talk to Noot\nat Home Base')
+    const ch = this.currentChapter()
+    this.ui.setText(`Ch ${ch.n + 1}: ${ch.title.replace(/^Chapter \d+: /, '').replace(/^Finale: /, '')}  |  Wood ${this.total.wood}/${GOAL.wood} Herb ${this.total.herbs}/${GOAL.herbs} Fish ${this.total.fish}/${GOAL.fish} Bloom ${this.total.blooms}/${GOAL.blooms}`)
+    this.objective.setText(`${ch.objective}\nH: journal   ♡ ${this.inv.hearts}/${GOAL.hearts}  Decor ${this.decorPlaced}/${GOAL.decorPlaced}  Mem ${this.inv.memories}/${GOAL.memories}`)
   }
 
   private say(text: string) {
@@ -963,6 +1087,7 @@ class Bb2DScene extends Phaser.Scene {
   }
 
   private restartGame() {
+    try { localStorage.removeItem(SAVE_KEY) } catch {}
     this.scene.restart()
   }
 }
