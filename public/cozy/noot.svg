@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="52" height="68" viewBox="0 0 52 68" shape-rendering="crispEdges">
+<ellipse cx="26" cy="60" rx="16" ry="4" fill="#000" opacity=".22"/>
+<path d="M15 30h22v24H15z" fill="#355c7d"/><path d="M18 33h16v18H18z" fill="#477da5"/><path d="M18 19h16v14H18z" fill="#b8795b"/>
+<path d="M14 13h24v10H14z" fill="#231614"/><path d="M15 20h5v8h-5zM32 20h5v8h-5z" fill="#231614"/>
+<path d="M20 24h3v3h-3zM30 24h3v3h-3z" fill="#211"/><path d="M24 30h7v2h-7z" fill="#6b352e"/>
+<path d="M11 38h7v14h-7zM34 38h7v14h-7z" fill="#b8795b"/><path d="M18 54h8v8h-8zM27 54h8v8h-8z" fill="#263846"/>
+</svg>

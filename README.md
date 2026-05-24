@@ -6,15 +6,24 @@ Live: https://milathebot.github.io/bb2d/
 
 ## Visual direction
 
-The game now uses a single cohesive local SVG pixel-art pack under `public/cozy/` instead of mixing unrelated asset packs. The pack covers:
+The game uses a bespoke local SVG pixel-art pack under `public/cozy/` so the visuals stay consistent instead of mixing unrelated packs.
 
-- player and B character sprites
-- Pengu and Mila cat sprites
-- trees, herbs, crop growth stages
-- house, shrine, signs, memory cards, decor, fish
-- a unified warm palette for the whole world
+Current polish pass:
 
-This replaced the previous mixed Kenney/Ninja/animal-pack pass, which looked inconsistent.
+- B / the wife is now the player character.
+- Noot is the NPC at home for the ending.
+- Each memory area has bespoke set dressing:
+  - University building
+  - Rave/DJ booth with lights
+  - Dubai/Canada skyline
+  - Kitchen date scene
+- Main gameplay areas have richer visual anchors:
+  - Moon Forest tree cluster
+  - Quiet Pond with reeds/bench/dock
+  - Garden bed with planted rows
+  - Home Base house/furniture/lights
+  - Memory Shrine lanterns
+- Unified palette and local SVG assets for player, NPC, cats, crops, fish, decor, signs, and interactables.
 
 ## Controls
 
