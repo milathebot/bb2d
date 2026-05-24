@@ -49,8 +49,9 @@ class Bb2DScene extends Phaser.Scene {
   constructor() { super('bb2d') }
 
   preload() {
-    const assets = ['tile-grass','tile-forest','tile-dirt','tile-water','tile-wood','tree','herb','crop0','crop1','crop2','crop3','house','shrine','memory-sign','player','wife','cat-pengu','cat-mila','dock','rug']
-    assets.forEach(name => this.load.image(name, `assets/${name}.svg`))
+    this.load.spritesheet('tiny-town', 'kenney/tiny-town.png', { frameWidth: 16, frameHeight: 16 })
+    this.load.image('pet-pengu', 'kenney/pengu.png')
+    this.load.image('pet-mila', 'kenney/mila.png')
   }
 
   create() {
@@ -94,26 +95,45 @@ class Bb2DScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-ESC', () => this.closePuzzle())
   }
 
+  private tile(frame: number, x: number, y: number, scale = 2) {
+    return this.add.image(x, y, 'tiny-town', frame).setScale(scale)
+  }
+
+  private paint(frame: number, x: number, y: number, w: number, h: number, scale = 2, variants: number[] = []) {
+    const step = 16 * scale
+    for (let px = x + step / 2; px < x + w; px += step) {
+      for (let py = y + step / 2; py < y + h; py += step) {
+        const f = variants.length ? Phaser.Utils.Array.GetRandom([frame, ...variants]) : frame
+        this.tile(f, px, py, scale)
+      }
+    }
+  }
+
   private drawWorld() {
     const g = this.add.graphics()
     g.fillGradientStyle(0x19372d, 0x19372d, 0x254f40, 0x254f40, 1)
     g.fillRect(0, 0, 960, 640)
 
-    this.add.tileSprite(480, 352, 960, 576, 'tile-grass')
+    this.paint(0, 0, 64, 960, 576, 2, [1])
 
-    this.zone(36, 82, 365, 230, 0x315f43, 'Moon Forest', 77, 94, 'tile-forest')
-    this.zone(608, 91, 286, 178, 0x2b7890, 'Quiet Pond', 650, 105, 'tile-water')
-    this.zone(86, 405, 315, 155, 0x84613c, 'Garden', 127, 418, 'tile-dirt')
-    this.zone(594, 360, 262, 188, 0x8b6d4c, 'Home Base', 653, 380, 'tile-wood')
+    this.zone(36, 82, 365, 230, 0x315f43, 'Moon Forest', 77, 94)
+    this.paint(0, 48, 110, 335, 182, 2, [1])
+    this.zone(608, 91, 286, 178, 0x2b7890, 'Quiet Pond', 650, 105)
+    this.paint(12, 628, 120, 242, 118, 2, [13, 24])
+    this.zone(86, 405, 315, 155, 0x84613c, 'Garden', 127, 418)
+    this.paint(12, 105, 435, 270, 96, 2, [13, 24])
+    this.zone(594, 360, 262, 188, 0x8b6d4c, 'Home Base', 653, 380)
+    this.paint(60, 612, 390, 224, 128, 2, [61])
     this.zone(420, 262, 130, 104, 0x44376a, 'Memory Shrine', 423, 242)
     this.zone(426, 90, 152, 82, 0x324b66, 'University', 458, 104)
     this.zone(440, 412, 130, 86, 0x5d3768, 'Rave Night', 463, 426)
     this.zone(770, 298, 128, 84, 0x6a5130, 'Dubai → Canada', 788, 312)
 
-    this.add.image(736, 452, 'house').setScale(0.86)
-    this.add.image(486, 315, 'shrine').setScale(0.78)
-    this.add.image(738, 221, 'dock').setScale(1.05)
-    this.add.image(700, 494, 'rug').setScale(0.9)
+    this.tile(43, 736, 428, 4)
+    this.tile(51, 736, 492, 4)
+    this.tile(88, 486, 316, 3)
+    this.tile(84, 738, 222, 3)
+    this.tile(96, 700, 494, 3)
 
     this.add.circle(752, 180, 84, 0x4db2c7, 0.18)
     this.add.circle(752, 180, 54, 0x82dbef, 0.16)
@@ -125,10 +145,8 @@ class Bb2DScene extends Phaser.Scene {
     }
   }
 
-  private zone(x: number, y: number, w: number, h: number, color: number, label: string, lx: number, ly: number, tile?: string) {
-    if (tile) this.add.tileSprite(x + w / 2, y + h / 2, w, h, tile).setAlpha(0.96)
-    else this.add.rectangle(x + w / 2, y + h / 2, w, h, color, 0.78)
-    this.add.rectangle(x + w / 2, y + h / 2, w, h, color, tile ? 0.18 : 0.32).setStrokeStyle(2, 0xffffff, 0.16)
+  private zone(x: number, y: number, w: number, h: number, color: number, label: string, lx: number, ly: number) {
+    this.add.rectangle(x + w / 2, y + h / 2, w, h, color, 0.18).setStrokeStyle(2, 0xffffff, 0.12)
     this.add.text(lx, ly, label, { fontFamily: 'monospace', fontSize: '14px', color: '#ffe9ad', backgroundColor: '#0e181699', padding: { x: 7, y: 3 } })
   }
 
@@ -148,7 +166,7 @@ class Bb2DScene extends Phaser.Scene {
     for (let i = 0; i < 6; i++) {
       const x = 135 + (i % 3) * 80
       const y = 456 + Math.floor(i / 3) * 55
-      const crop = this.add.image(x, y, 'crop0')
+      const crop = this.tile(12, x, y, 2.2)
       this.add.ellipse(x, y + 20, 52, 9, 0x3d291b, 0.35)
       this.items.push({ kind: 'crop', name: 'garden plot', zone: new Phaser.Geom.Rectangle(x - 30, y - 25, 60, 50), sprite: crop, stage: 0 })
     }
@@ -229,12 +247,12 @@ class Bb2DScene extends Phaser.Scene {
 
   private tendCrop(item: WorldItem) {
     item.stage = Math.min((item.stage ?? 0) + 1, 3)
-    if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setTexture(`crop${item.stage}`)
+    if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setFrame([12, 25, 26, 27][item.stage])
     if (item.stage === 3) {
       this.inv.blooms++
       this.total.blooms++
       item.stage = 0
-      this.time.delayedCall(250, () => { if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setTexture('crop0') })
+      this.time.delayedCall(250, () => { if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setFrame(12) })
       this.say('+1 bloom. Garden delivered.')
     } else {
       this.say(item.stage === 1 ? 'Seeds planted.' : 'Watered. Almost blooming.')
@@ -472,33 +490,33 @@ class Bb2DScene extends Phaser.Scene {
 
   private memory(x: number, y: number, title: string, message: string) {
     const c = this.add.container(x, y)
-    c.add(this.add.image(0, 0, 'memory-sign'))
+    c.add(this.add.image(0, 0, 'tiny-town', 89).setScale(3))
     c.add(this.add.text(0, -11, title, { fontFamily: 'monospace', fontSize: '12px', color: '#fff3ba', align: 'center' }).setOrigin(0.5))
     c.add(this.add.text(0, 13, 'press E', { fontFamily: 'monospace', fontSize: '10px', color: '#ffd7ed' }).setOrigin(0.5))
     this.items.push({ kind: 'memory', name: title, zone: new Phaser.Geom.Rectangle(x - 61, y - 29, 122, 58), sprite: c, message })
   }
 
   private tree(x: number, y: number) {
-    return this.add.image(x, y, 'tree')
+    return this.tile(5, x, y, 2.6)
   }
 
   private flower(x: number, y: number) {
-    return this.add.image(x, y, 'herb')
+    return this.tile(1, x, y, 2.1)
   }
 
   private person(x: number, y: number, _skin: number, _hairColor: number, _shirt: number, badge: string) {
     const p = this.add.container(x, y)
-    p.add(this.add.ellipse(0, 21, 34, 12, 0x000000, 0.22))
-    p.add(this.add.image(0, 0, badge === 'B' ? 'wife' : 'player'))
+    p.add(this.add.ellipse(0, 19, 30, 10, 0x000000, 0.22))
+    p.add(this.add.image(0, 0, 'tiny-town', badge === 'B' ? 86 : 87).setScale(2.7))
     if (badge === 'B') this.items.push({ kind: 'wife', name: 'B', zone: new Phaser.Geom.Rectangle(x - 28, y - 42, 56, 76) })
     return p
   }
 
   private cat(x: number, y: number, _color: number, name: string) {
     const c = this.add.container(x, y)
-    c.add(this.add.ellipse(22, 28, 38, 9, 0x000000, 0.18))
-    c.add(this.add.image(20, 12, name === 'Pengu' ? 'cat-pengu' : 'cat-mila'))
-    c.add(this.add.text(0, 36, name, { fontFamily: 'monospace', fontSize: '10px', color: '#fff' }))
+    c.add(this.add.ellipse(25, 30, 40, 10, 0x000000, 0.18))
+    c.add(this.add.image(24, 12, name === 'Pengu' ? 'pet-pengu' : 'pet-mila').setScale(0.34))
+    c.add(this.add.text(0, 38, name, { fontFamily: 'monospace', fontSize: '10px', color: '#fff' }))
     return c
   }
 

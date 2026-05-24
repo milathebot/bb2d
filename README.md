@@ -1,19 +1,17 @@
 # Bb2D
 
-A cozy browser RPG gift: farming, fishing, gathering, decorating, cats, match-3 memories, and a romantic ending.
+A cozy browser RPG gift: farming, fishing, gathering, decorating, pets, match-3 memories, and a romantic ending.
 
 Live: https://milathebot.github.io/bb2d/
 
-## Visuals
+## Asset packs
 
-Bb2D now uses a custom lightweight pixel-art asset pack in `public/assets/`:
+Bb2D now uses real free CC0 Kenney asset packs, stored locally in `public/kenney/`:
 
-- grass/forest/dirt/water/wood tiles
-- trees, herbs, crops, pond dock, house, shrine, memory signs
-- player, B, Pengu, Mila
-- cozy home rug/decor pieces
+- Tiny Town by Kenney, CC0: https://kenney.nl/assets/tiny-town
+- Animal Pack by Kenney, CC0: https://kenney.nl/assets/animal-pack
 
-All assets are local/custom SVGs, so the game stays fast and has no external asset dependency.
+The previous custom placeholder SVG assets were removed from the shipped game.
 
 ## Goal
 
