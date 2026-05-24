@@ -151,6 +151,7 @@ class Bb2DScene extends Phaser.Scene {
       'dock','rave-light-pink','rave-light-blue','memory-sparkle','ending-frame'
     ].forEach(name => this.load.image(`cozy-${name}`, `gif/${name}.png`))
     this.load.image('cozy-map-ground', 'gif/map-ground.png')
+    this.load.image('cozy-pond-base', 'gif/pond-base.png')
   }
 
   create() {
@@ -295,7 +296,8 @@ class Bb2DScene extends Phaser.Scene {
 
     // Actual path tiles from the pack, not semi-transparent strokes.
     this.path([[1950, 1330], [1780, 1300], [1600, 1315], [1450, 1300], [1310, 1280], [1120, 1070], [1010, 900], [910, 770], [760, 570], [610, 390]])
-    this.path([[1010, 900], [1260, 770], [1460, 610], [1700, 430], [1930, 340]])
+    this.path([[1010, 900], [1260, 770], [1460, 610], [1695, 525], [1945, 540]])
+    this.path([[1695, 525], [1660, 420], [1660, 250], [1735, 180]])
     this.path([[1320, 1290], [950, 1350], [650, 1450], [455, 1415]])
     this.path([[760, 570], [910, 365], [1080, 300], [1240, 360]])
     this.path([[1780, 1300], [1900, 1060], [2070, 860], [2195, 710]])
@@ -303,9 +305,13 @@ class Bb2DScene extends Phaser.Scene {
 
     // Quiet Pond gets an authored overlay here so it reads as a pond, not broken tile confetti.
     this.drawQuietPondBase()
-    ;[[1815, 270, 1.8], [1990, 350, 2.2], [2155, 430, 1.7]].forEach(([x, y, scale]) => this.asset('water-ripple', x, y, scale).setDepth(1).setAlpha(0.45))
-    this.asset('waterfall', 1695, 210, 2.2).setDepth(3)
-    this.block(1970, 340, 690, 430)
+    ;[[1815, 270, 1.55], [1990, 350, 1.85], [2155, 430, 1.45]].forEach(([x, y, scale]) => this.asset('water-ripple', x, y, scale).setDepth(2).setAlpha(0.34))
+    this.asset('waterfall', 1735, 214, 1.8).setDepth(3)
+    // Block the actual water mass only. The south bank, dock, and path approach stay walkable.
+    this.block(1988, 258, 470, 165)
+    this.block(1780, 344, 145, 94)
+    this.block(2210, 340, 156, 98)
+    this.block(1998, 362, 150, 38)
 
     this.zone(70, 135, 670, 500, 0x183f2d, 'Moon Forest', 190, 178)
     this.asset('forest-detail', 390, 405, 1.9).setDepth(3)
@@ -313,9 +319,10 @@ class Bb2DScene extends Phaser.Scene {
     this.add.text(500, 190, 'quiet trail', { fontFamily: 'monospace', fontSize: '13px', color: '#dfffe1', stroke: '#122019', strokeThickness: 3 }).setDepth(5)
 
     this.zone(1640, 110, 670, 460, 0x1f6880, 'Quiet Pond', 1760, 154)
-    this.asset('pond-detail', 2020, 360, 2.2).setDepth(3)
-    this.asset('dock', 1888, 522, 1).setDepth(4)
-    this.block(1888, 522, 210, 38)
+    this.asset('pond-detail', 1715, 430, 1.15).setDepth(3)
+    this.asset('pond-detail', 2255, 300, 1.05).setDepth(3).setFlipX(true)
+    this.asset('dock', 1988, 466, 1.04).setDepth(4)
+    this.add.text(1988, 535, 'fish from the dock', { fontFamily: 'monospace', fontSize: '12px', color: '#fff3ba', stroke: '#2a1a1e', strokeThickness: 3 }).setOrigin(0.5).setDepth(5)
     this.blockingAsset('bench', 2180, 488, 1.25, 74, 32, 8).setDepth(4)
 
     this.zone(1240, 1160, 430, 340, 0x7b5935, 'Garden', 1345, 1198)
@@ -375,35 +382,7 @@ class Bb2DScene extends Phaser.Scene {
   }
 
   private drawQuietPondBase() {
-    const g = this.add.graphics().setDepth(1)
-    // Patch over the old tiled pond area with matching ground first.
-    g.fillStyle(0xee9e58, 1)
-    g.fillRoundedRect(1595, 82, 770, 500, 28)
-    g.fillStyle(0x5fa32d, 1)
-    g.fillCircle(1660, 112, 128)
-    g.fillCircle(2318, 128, 106)
-    g.fillCircle(2305, 530, 92)
-
-    // Sand bank and water body. Big simple silhouettes read better than noisy tile patches.
-    g.fillStyle(0xeecf91, 1)
-    g.fillEllipse(1988, 324, 710, 410)
-    g.fillStyle(0x3597c6, 1)
-    g.fillEllipse(1988, 316, 620, 320)
-    g.fillStyle(0x2070b2, 0.82)
-    g.fillEllipse(2008, 318, 445, 220)
-    g.fillStyle(0x79d6e5, 0.38)
-    ;[[1820,245,128,9],[1970,205,154,8],[2135,273,142,8],[1870,355,124,8],[2050,395,172,8],[2180,345,94,7]].forEach(([x, y, w, h]) => g.fillRoundedRect(x, y, w, h, 4))
-
-    // Reeds and rocks around the bank so the pond has bespoke identity.
-    g.fillStyle(0x375f2d, 1)
-    ;[[1718,392],[2255,272],[2160,492],[1772,176],[2055,520]].forEach(([x, y]) => {
-      for (let i = -2; i <= 2; i++) g.fillRect(x + i * 7, y - 34 - Math.abs(i) * 4, 4, 38 + Math.abs(i) * 4)
-      g.fillStyle(0xddb95c, 1)
-      g.fillCircle(x - 14, y - 38, 5); g.fillCircle(x + 14, y - 41, 5)
-      g.fillStyle(0x375f2d, 1)
-    })
-    g.fillStyle(0x7b5c44, 1)
-    ;[[1708,218],[2242,440],[1906,132],[2115,146],[1838,484],[2290,335]].forEach(([x, y]) => g.fillEllipse(x, y, 32, 18))
+    this.add.image(1988, 324, 'cozy-pond-base').setDepth(1)
   }
 
   private addInteractiveItems() {
@@ -429,7 +408,7 @@ class Bb2DScene extends Phaser.Scene {
       this.items.push({ kind: 'crop', name: 'farm plot', zone: new Phaser.Geom.Rectangle(x - 34, y - 30, 68, 62), sprite: crop, stage: 0 })
     }
 
-    this.items.push({ kind: 'pond', name: 'fishing dock', zone: new Phaser.Geom.Rectangle(1640, 110, 670, 460), cooldown: 0 })
+    this.items.push({ kind: 'pond', name: 'fishing dock', zone: new Phaser.Geom.Rectangle(1870, 420, 245, 165), cooldown: 0 })
     this.items.push({ kind: 'puzzle', name: 'match-3 memory shrine', zone: new Phaser.Geom.Rectangle(1120, 760, 420, 320) })
     this.items.push({ kind: 'house', name: 'home base', zone: new Phaser.Geom.Rectangle(1800, 1120, 560, 390) })
 
