@@ -32,6 +32,8 @@ const GOAL = { wood: 8, herbs: 5, fish: 4, blooms: 4, hearts: 6, decorPlaced: 8,
 
 class Bb2DScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container
+  private playerSprite!: Phaser.GameObjects.Sprite
+  private facing: 'down' | 'up' | 'left' | 'right' = 'down'
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys
   private keys!: Record<string, Phaser.Input.Keyboard.Key>
   private items: WorldItem[] = []
@@ -55,6 +57,9 @@ class Bb2DScene extends Phaser.Scene {
 
   preload() {
     this.load.spritesheet('tiny-town', 'kenney/tiny-town.png', { frameWidth: 16, frameHeight: 16 })
+    this.load.spritesheet('player-sheet', 'ninja/characters/player.png', { frameWidth: 16, frameHeight: 16 })
+    this.load.spritesheet('b-sheet', 'ninja/characters/b.png', { frameWidth: 16, frameHeight: 16 })
+    this.load.spritesheet('pet-sheet', 'ninja/pets/pet-dog.png', { frameWidth: 16, frameHeight: 16 })
     this.load.image('pet-pengu', 'kenney/pengu.png')
     this.load.image('pet-mila', 'kenney/mila.png')
   }
@@ -66,6 +71,7 @@ class Bb2DScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H)
 
     this.drawWorld()
+    this.createAnimations()
     this.addInteractiveItems()
     this.addCharacters()
     this.addUI()
@@ -91,11 +97,36 @@ class Bb2DScene extends Phaser.Scene {
     if (this.cursors.down?.isDown || this.keys.S.isDown) dy += speed
     if (dx && dy) { dx *= 0.707; dy *= 0.707 }
 
+    if (dx || dy) {
+      if (Math.abs(dx) > Math.abs(dy)) this.facing = dx > 0 ? 'right' : 'left'
+      else this.facing = dy > 0 ? 'down' : 'up'
+      this.playerSprite.play(`player-${this.facing}`, true)
+    } else {
+      this.playerSprite.stop()
+    }
+
     this.player.x = Phaser.Math.Clamp(this.player.x + dx, 32, WORLD_W - 32)
     this.player.y = Phaser.Math.Clamp(this.player.y + dy, 82, WORLD_H - 32)
     this.updatePrompt()
     this.updateAreaLabel()
     this.followCats(delta)
+  }
+
+  private createAnimations() {
+    const make = (sheet: string, prefix: string) => {
+      const rows: Record<'down' | 'up' | 'left' | 'right', number> = { down: 0, up: 1, left: 2, right: 3 }
+      Object.entries(rows).forEach(([dir, row]) => {
+        this.anims.create({
+          key: `${prefix}-${dir}`,
+          frames: this.anims.generateFrameNumbers(sheet, { start: row * 4, end: row * 4 + 3 }),
+          frameRate: 7,
+          repeat: -1,
+        })
+      })
+    }
+    make('player-sheet', 'player')
+    make('b-sheet', 'b')
+    this.anims.create({ key: 'pet-walk', frames: this.anims.generateFrameNumbers('pet-sheet', { start: 0, end: 1 }), frameRate: 4, repeat: -1 })
   }
 
   private bindControls() {
@@ -585,8 +616,12 @@ class Bb2DScene extends Phaser.Scene {
   private person(x: number, y: number, _skin: number, _hairColor: number, _shirt: number, badge: string) {
     const p = this.add.container(x, y).setDepth(10)
     p.add(this.add.ellipse(0, 19, 30, 10, 0x000000, 0.22))
-    p.add(this.add.image(0, 0, 'tiny-town', badge === 'B' ? 86 : 87).setScale(2.7))
+    const sheet = badge === 'B' ? 'b-sheet' : 'player-sheet'
+    const sprite = this.add.sprite(0, 0, sheet, 0).setScale(2.25)
+    p.add(sprite)
+    if (badge === 'N') this.playerSprite = sprite
     if (badge === 'B') {
+      sprite.play('b-down')
       p.add(this.add.text(0, -42, 'B', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd7ed', stroke: '#21131a', strokeThickness: 3 }).setOrigin(0.5))
       this.items.push({ kind: 'wife', name: 'B', zone: new Phaser.Geom.Rectangle(x - 40, y - 52, 80, 104) })
     }
@@ -595,9 +630,11 @@ class Bb2DScene extends Phaser.Scene {
 
   private cat(x: number, y: number, _color: number, name: string) {
     const c = this.add.container(x, y).setDepth(9)
-    c.add(this.add.ellipse(25, 30, 40, 10, 0x000000, 0.18))
-    c.add(this.add.image(24, 12, name === 'Pengu' ? 'pet-pengu' : 'pet-mila').setScale(0.34))
-    c.add(this.add.text(0, 38, name, { fontFamily: 'monospace', fontSize: '10px', color: '#fff', stroke: '#1b1112', strokeThickness: 3 }))
+    c.add(this.add.ellipse(2, 13, 24, 7, 0x000000, 0.18))
+    const pet = this.add.sprite(0, 0, 'pet-sheet', name === 'Pengu' ? 0 : 1).setScale(1.25)
+    pet.play('pet-walk')
+    c.add(pet)
+    c.add(this.add.text(-16, 22, name, { fontFamily: 'monospace', fontSize: '10px', color: '#fff', stroke: '#1b1112', strokeThickness: 3 }))
     return c
   }
 
