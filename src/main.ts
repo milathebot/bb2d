@@ -497,83 +497,163 @@ class Bb2DScene extends Phaser.Scene {
     const overlay = this.add.container(0, 0).setDepth(120).setScrollFactor(0).setName('puzzle')
     overlay.add(this.add.rectangle(480, 320, 960, 640, 0x07080d, 0.88).setScrollFactor(0))
     overlay.add(this.add.text(480, 72, 'Match-3 Memories', { fontFamily: 'monospace', fontSize: '30px', color: '#ffe7a8' }).setOrigin(0.5).setScrollFactor(0))
-    overlay.add(this.add.text(480, 112, 'Click adjacent tiles. Every match gives +1 heart and +1 decor. ESC closes.', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0))
+    overlay.add(this.add.text(480, 112, 'Click adjacent tiles. Make any row or column of 3+. ESC closes.', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0))
 
-    const pattern = [
-      ['🎧', '🎧', '🌲', '🎧', '🐟'],
-      ['🌸', '🐟', '🥟', '🌲', '🎧'],
-      ['🥟', '🌸', '🎧', '🐟', '🌲'],
-      ['🎧', '🥟', '🌸', '🌲', '🐟'],
-      ['🐟', '🌲', '🎧', '🥟', '🌸'],
-    ]
+    const size = 6
+    const icons = ['🎧', '🌲', '🐟', '🌸', '🥟', '🐾']
+    const cells: string[][] = []
     const board: Phaser.GameObjects.Text[][] = []
     const boxes: Phaser.GameObjects.Rectangle[][] = []
     let selected: { r: number, c: number } | null = null
+    let resolving = false
 
-    const resetBoard = () => {
-      for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) board[r][c].setText(pattern[r][c])
+    const randomIcon = () => Phaser.Utils.Array.GetRandom(icons)
+    const swapCells = (a: { r: number, c: number }, b: { r: number, c: number }) => {
+      const tmp = cells[a.r][a.c]
+      cells[a.r][a.c] = cells[b.r][b.c]
+      cells[b.r][b.c] = tmp
     }
-    const resolve = () => {
-      const matched: boolean[][] = Array.from({ length: 5 }, () => Array(5).fill(false))
-      let found = false
-      for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) {
-        const v = board[r][c].text
-        if (v === board[r][c + 1].text && v === board[r][c + 2].text) { matched[r][c] = matched[r][c + 1] = matched[r][c + 2] = true; found = true }
+    const findMatches = () => {
+      const matched: boolean[][] = Array.from({ length: size }, () => Array(size).fill(false))
+      let count = 0
+      for (let r = 0; r < size; r++) {
+        let runStart = 0
+        for (let c = 1; c <= size; c++) {
+          if (c < size && cells[r][c] === cells[r][runStart]) continue
+          const run = c - runStart
+          if (run >= 3) for (let x = runStart; x < c; x++) if (!matched[r][x]) { matched[r][x] = true; count++ }
+          runStart = c
+        }
       }
-      for (let c = 0; c < 5; c++) for (let r = 0; r < 3; r++) {
-        const v = board[r][c].text
-        if (v === board[r + 1][c].text && v === board[r + 2][c].text) { matched[r][c] = matched[r + 1][c] = matched[r + 2][c] = true; found = true }
+      for (let c = 0; c < size; c++) {
+        let runStart = 0
+        for (let r = 1; r <= size; r++) {
+          if (r < size && cells[r][c] === cells[runStart][c]) continue
+          const run = r - runStart
+          if (run >= 3) for (let y = runStart; y < r; y++) if (!matched[y][c]) { matched[y][c] = true; count++ }
+          runStart = r
+        }
       }
-      if (!found) return false
-      for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) if (matched[r][c]) {
+      return { matched, count }
+    }
+    const hasLegalMove = () => {
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
+        const here = { r, c }
+        const candidates = [{ r: r + 1, c }, { r, c: c + 1 }].filter(p => p.r < size && p.c < size)
+        for (const there of candidates) {
+          swapCells(here, there)
+          const legal = findMatches().count > 0
+          swapCells(here, there)
+          if (legal) return true
+        }
+      }
+      return false
+    }
+    const fillFreshBoard = () => {
+      for (let attempt = 0; attempt < 200; attempt++) {
+        for (let r = 0; r < size; r++) {
+          cells[r] = []
+          for (let c = 0; c < size; c++) {
+            let pick = randomIcon()
+            let guard = 0
+            while (guard++ < 20 && ((c >= 2 && cells[r][c - 1] === pick && cells[r][c - 2] === pick) || (r >= 2 && cells[r - 1][c] === pick && cells[r - 2][c] === pick))) pick = randomIcon()
+            cells[r][c] = pick
+          }
+        }
+        if (hasLegalMove()) return
+      }
+    }
+    const syncBoard = () => {
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) board[r][c].setText(cells[r][c]).setScale(1).setAlpha(1)
+    }
+    const clearSelection = () => {
+      selected = null
+      boxes.flat().forEach(b => b.setStrokeStyle(2, 0xffe7a8))
+    }
+    const collapseAndRefill = () => {
+      const { matched, count } = findMatches()
+      if (!count) return false
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) if (matched[r][c]) {
         board[r][c].setText('✨')
-        this.tweens.add({ targets: board[r][c], scale: 1.3, yoyo: true, duration: 120 })
+        this.tweens.add({ targets: board[r][c], scale: 1.3, alpha: 0.4, yoyo: true, duration: 120 })
       }
-      this.time.delayedCall(220, resetBoard)
+      this.time.delayedCall(180, () => {
+        for (let c = 0; c < size; c++) {
+          const kept: string[] = []
+          for (let r = size - 1; r >= 0; r--) if (!matched[r][c]) kept.push(cells[r][c])
+          for (let r = size - 1; r >= 0; r--) cells[r][c] = kept[size - 1 - r] ?? randomIcon()
+        }
+        let guard = 0
+        while (findMatches().count > 0 && guard++ < 10) {
+          const next = findMatches().matched
+          for (let c = 0; c < size; c++) {
+            const kept: string[] = []
+            for (let r = size - 1; r >= 0; r--) if (!next[r][c]) kept.push(cells[r][c])
+            for (let r = size - 1; r >= 0; r--) cells[r][c] = kept[size - 1 - r] ?? randomIcon()
+          }
+        }
+        if (!hasLegalMove()) fillFreshBoard()
+        syncBoard()
+        resolving = false
+      })
+      return true
+    }
+    const rewardMatch = () => {
       this.audio.blip('puzzle')
       this.inv.decor++
       this.inv.hearts++
       this.checkUnlocks()
       this.refreshUI()
       this.say('Memory match made. +1 decor, +1 heart.')
-      return true
     }
-    const setSelected = (r: number, c: number) => {
-      boxes.flat().forEach(b => b.setStrokeStyle(2, 0xffe7a8))
-      boxes[r][c].setStrokeStyle(4, 0xff91ce)
-      selected = { r, c }
-    }
-    for (let r = 0; r < 5; r++) {
+
+    fillFreshBoard()
+    for (let r = 0; r < size; r++) {
       board[r] = []
       boxes[r] = []
-      for (let c = 0; c < 5; c++) {
-        const x = 330 + c * 62
-        const y = 162 + r * 62
-        const bg = this.add.rectangle(x, y, 54, 54, 0x293a52).setStrokeStyle(2, 0xffe7a8).setInteractive().setScrollFactor(0)
-        const t = this.add.text(x, y, pattern[r][c], { fontFamily: 'sans-serif', fontSize: '28px' }).setOrigin(0.5).setInteractive().setScrollFactor(0)
+      for (let c = 0; c < size; c++) {
+        const x = 292 + c * 62
+        const y = 154 + r * 56
+        const bg = this.add.rectangle(x, y, 54, 50, 0x293a52).setStrokeStyle(2, 0xffe7a8).setInteractive().setScrollFactor(0)
+        const t = this.add.text(x, y, cells[r][c], { fontFamily: 'sans-serif', fontSize: '27px' }).setOrigin(0.5).setInteractive().setScrollFactor(0)
         overlay.add([bg, t])
         boxes[r][c] = bg
         board[r][c] = t
         const click = () => {
-          if (!selected) return setSelected(r, c)
-          const adj = Math.abs(selected.r - r) + Math.abs(selected.c - c) === 1
-          if (!adj) return setSelected(r, c)
-          const a = board[selected.r][selected.c].text
-          board[selected.r][selected.c].setText(board[r][c].text)
-          board[r][c].setText(a)
-          if (!resolve()) {
-            board[r][c].setText(board[selected.r][selected.c].text)
-            board[selected.r][selected.c].setText(a)
-            this.say('No match. Try another swap.')
+          if (resolving) return
+          if (!selected) {
+            selected = { r, c }
+            boxes[r][c].setStrokeStyle(4, 0xff91ce)
+            return
           }
-          selected = null
-          boxes.flat().forEach(b => b.setStrokeStyle(2, 0xffe7a8))
+          const next = { r, c }
+          const adj = Math.abs(selected.r - next.r) + Math.abs(selected.c - next.c) === 1
+          if (!adj) {
+            clearSelection()
+            selected = next
+            boxes[r][c].setStrokeStyle(4, 0xff91ce)
+            return
+          }
+          const prev = selected
+          swapCells(prev, next)
+          syncBoard()
+          if (findMatches().count === 0) {
+            swapCells(prev, next)
+            syncBoard()
+            this.say('No match. Try another swap.')
+            clearSelection()
+            return
+          }
+          resolving = true
+          clearSelection()
+          rewardMatch()
+          collapseAndRefill()
         }
         bg.on('pointerdown', click)
         t.on('pointerdown', click)
       }
     }
-    overlay.add(this.add.text(480, 505, 'Hint: swap the tree between the headphones with the headphone on its right. 🎧', { fontFamily: 'monospace', fontSize: '14px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
+    overlay.add(this.add.text(480, 522, 'Tip: any 3+ in a row or column counts. The board refills with new moves now.', { fontFamily: 'monospace', fontSize: '14px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
   }
 
   private closePuzzle() {
