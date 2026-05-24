@@ -1,16 +1,30 @@
 import Phaser from 'phaser'
 import './style.css'
 
-type ItemKind = 'tree' | 'herb' | 'pond' | 'crop' | 'memory' | 'house' | 'puzzle'
+type ItemKind = 'tree' | 'herb' | 'pond' | 'crop' | 'memory' | 'house' | 'puzzle' | 'wife'
 
 type WorldItem = {
   kind: ItemKind
   name: string
   zone: Phaser.Geom.Rectangle
-  sprite?: Phaser.GameObjects.GameObject
-  used?: boolean
+  sprite?: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Container
   stage?: number
+  cooldown?: number
+  collected?: boolean
+  message?: string
 }
+
+type Inventory = {
+  wood: number
+  herbs: number
+  fish: number
+  blooms: number
+  hearts: number
+  decor: number
+  memories: number
+}
+
+const GOAL = { wood: 6, herbs: 4, fish: 3, blooms: 3, hearts: 5, decorPlaced: 6, memories: 4 }
 
 class Bb2DScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container
@@ -18,295 +32,501 @@ class Bb2DScene extends Phaser.Scene {
   private keys!: Record<string, Phaser.Input.Keyboard.Key>
   private items: WorldItem[] = []
   private ui!: Phaser.GameObjects.Text
+  private objective!: Phaser.GameObjects.Text
   private prompt!: Phaser.GameObjects.Text
   private toast!: Phaser.GameObjects.Text
+  private overlay?: Phaser.GameObjects.Container
   private inPuzzle = false
-  private inv = { wood: 0, herbs: 0, fish: 0, blooms: 0, hearts: 0, decor: 0 }
-  private unlockedPengu = false
-  private unlockedMila = false
+  private gameStarted = false
+  private endingShown = false
+  private inv: Inventory = { wood: 0, herbs: 0, fish: 0, blooms: 0, hearts: 0, decor: 0, memories: 0 }
+  private total = { wood: 0, herbs: 0, fish: 0, blooms: 0 }
   private decorPlaced = 0
-  private catPengu?: Phaser.GameObjects.Container
-  private catMila?: Phaser.GameObjects.Container
+  private pengu?: Phaser.GameObjects.Container
+  private mila?: Phaser.GameObjects.Container
+  private fireflies: Phaser.GameObjects.Arc[] = []
 
   constructor() { super('bb2d') }
 
   create() {
-    this.cameras.main.setBackgroundColor('#172f27')
-    this.addWorld()
-    this.addPlayer()
-    this.addCats()
+    this.cameras.main.setBackgroundColor('#142820')
+    this.drawWorld()
+    this.addInteractiveItems()
+    this.addCharacters()
     this.addUI()
-
-    this.cursors = this.input.keyboard!.createCursorKeys()
-    this.keys = this.input.keyboard!.addKeys('W,A,S,D,E,F,P,B,ESC') as Record<string, Phaser.Input.Keyboard.Key>
-
-    this.input.keyboard!.on('keydown-E', () => this.interact())
-    this.input.keyboard!.on('keydown-F', () => this.fish())
-    this.input.keyboard!.on('keydown-P', () => this.openPuzzle())
-    this.input.keyboard!.on('keydown-B', () => this.decorate())
-    this.input.keyboard!.on('keydown-ESC', () => this.closePuzzle())
-
-    this.say('Welcome to Bb2D. Gather, farm, fish, solve puzzles, and build a little home together.')
+    this.bindControls()
+    this.showIntro()
   }
 
   update(_: number, delta: number) {
-    if (this.inPuzzle) return
-    const speed = 0.16 * delta
-    let dx = 0, dy = 0
+    this.animateWorld(delta)
+    if (!this.gameStarted || this.inPuzzle || this.endingShown) return
+
+    const speed = 0.17 * delta
+    let dx = 0
+    let dy = 0
     if (this.cursors.left?.isDown || this.keys.A.isDown) dx -= speed
     if (this.cursors.right?.isDown || this.keys.D.isDown) dx += speed
     if (this.cursors.up?.isDown || this.keys.W.isDown) dy -= speed
     if (this.cursors.down?.isDown || this.keys.S.isDown) dy += speed
-    this.player.x = Phaser.Math.Clamp(this.player.x + dx, 30, 930)
-    this.player.y = Phaser.Math.Clamp(this.player.y + dy, 70, 610)
+
+    this.player.x = Phaser.Math.Clamp(this.player.x + dx, 28, 932)
+    this.player.y = Phaser.Math.Clamp(this.player.y + dy, 74, 608)
     this.updatePrompt()
-    this.updateCats(delta)
+    this.followCats(delta)
   }
 
-  private addWorld() {
+  private bindControls() {
+    this.cursors = this.input.keyboard!.createCursorKeys()
+    this.keys = this.input.keyboard!.addKeys('W,A,S,D,E,F,P,B,R,ENTER,SPACE,ESC') as Record<string, Phaser.Input.Keyboard.Key>
+    this.input.keyboard!.on('keydown-ENTER', () => this.dismissOverlay())
+    this.input.keyboard!.on('keydown-SPACE', () => this.dismissOverlay())
+    this.input.keyboard!.on('keydown-E', () => this.interact())
+    this.input.keyboard!.on('keydown-F', () => this.fish())
+    this.input.keyboard!.on('keydown-P', () => this.openPuzzle())
+    this.input.keyboard!.on('keydown-B', () => this.decorate())
+    this.input.keyboard!.on('keydown-R', () => this.restartGame())
+    this.input.keyboard!.on('keydown-ESC', () => this.closePuzzle())
+  }
+
+  private drawWorld() {
     const g = this.add.graphics()
-    g.fillStyle(0x235741).fillRect(0, 0, 960, 640)
-    g.fillStyle(0x2f6b4a).fillRoundedRect(40, 80, 360, 230, 24) // forest
-    g.fillStyle(0x2b7890).fillRoundedRect(620, 95, 270, 170, 36) // pond
-    g.fillStyle(0x7b5a34).fillRoundedRect(95, 405, 300, 155, 18) // farm
-    g.fillStyle(0x8a6844).fillRoundedRect(600, 365, 245, 175, 18) // home
-    g.fillStyle(0x413665).fillRoundedRect(430, 270, 110, 90, 18) // puzzle
+    g.fillGradientStyle(0x19372d, 0x19372d, 0x254f40, 0x254f40, 1)
+    g.fillRect(0, 0, 960, 640)
 
-    this.label(80, 92, 'Moon Forest')
-    this.label(655, 105, 'Quiet Pond')
-    this.label(125, 416, 'Garden')
-    this.label(654, 380, 'Home Base')
-    this.label(423, 248, 'Memory Puzzle')
+    for (let x = 0; x < 960; x += 32) for (let y = 64; y < 640; y += 32) {
+      if ((x + y) % 96 === 0) this.add.rectangle(x + 8, y + 8, 3, 3, 0x8fcf8f, 0.22)
+    }
 
-    // Trees
+    this.zone(36, 82, 365, 230, 0x315f43, 'Moon Forest', 77, 94)
+    this.zone(608, 91, 286, 178, 0x2b7890, 'Quiet Pond', 650, 105)
+    this.zone(86, 405, 315, 155, 0x84613c, 'Garden', 127, 418)
+    this.zone(594, 360, 262, 188, 0x8b6d4c, 'Home Base', 653, 380)
+    this.zone(420, 262, 130, 104, 0x44376a, 'Memory Shrine', 423, 242)
+    this.zone(426, 90, 152, 82, 0x324b66, 'University', 458, 104)
+    this.zone(440, 412, 130, 86, 0x5d3768, 'Rave Night', 463, 426)
+    this.zone(770, 298, 128, 84, 0x6a5130, 'Dubai → Canada', 788, 312)
+
+    this.add.circle(752, 180, 84, 0x4db2c7, 0.38)
+    this.add.circle(752, 180, 54, 0x82dbef, 0.20)
+    this.add.rectangle(725, 205, 92, 14, 0xf5e6af, 0.45)
+
+    for (let i = 0; i < 20; i++) {
+      const dot = this.add.circle(Phaser.Math.Between(30, 930), Phaser.Math.Between(80, 610), 2, 0xffe58a, 0.35)
+      this.fireflies.push(dot)
+    }
+  }
+
+  private zone(x: number, y: number, w: number, h: number, color: number, label: string, lx: number, ly: number) {
+    this.add.rectangle(x + w / 2, y + h / 2, w, h, color, 0.92).setStrokeStyle(2, 0xffffff, 0.12)
+    this.add.text(lx, ly, label, { fontFamily: 'monospace', fontSize: '14px', color: '#ffe9ad', backgroundColor: '#0e181699', padding: { x: 7, y: 3 } })
+  }
+
+  private addInteractiveItems() {
     for (let i = 0; i < 9; i++) {
-      const x = 85 + (i % 3) * 95 + Phaser.Math.Between(-12, 12)
-      const y = 135 + Math.floor(i / 3) * 58 + Phaser.Math.Between(-8, 8)
-      this.tree(x, y)
-      this.items.push({ kind: 'tree', name: 'soft pine', zone: new Phaser.Geom.Rectangle(x - 24, y - 32, 48, 58) })
+      const x = 84 + (i % 3) * 97 + Phaser.Math.Between(-10, 10)
+      const y = 137 + Math.floor(i / 3) * 58 + Phaser.Math.Between(-6, 6)
+      const sprite = this.tree(x, y)
+      this.items.push({ kind: 'tree', name: 'soft pine', zone: new Phaser.Geom.Rectangle(x - 26, y - 34, 52, 62), cooldown: 0, sprite })
     }
-    // Herbs/food
-    ;[[330,155],[260,260],[355,285],[190,225]].forEach(([x,y]) => {
-      this.flower(x,y)
-      this.items.push({ kind: 'herb', name: 'wellness herbs', zone: new Phaser.Geom.Rectangle(x-22,y-22,44,44) })
+
+    ;[[335,155],[263,263],[356,287],[188,226],[112,288]].forEach(([x, y]) => {
+      const sprite = this.flower(x, y)
+      this.items.push({ kind: 'herb', name: 'wellness herbs', zone: new Phaser.Geom.Rectangle(x - 23, y - 24, 46, 48), cooldown: 0, sprite })
     })
-    // Crops
+
     for (let i = 0; i < 6; i++) {
-      const x = 135 + (i % 3) * 78, y = 455 + Math.floor(i / 3) * 55
-      const crop = this.add.rectangle(x, y, 34, 28, 0x5a3a24).setStrokeStyle(2, 0x2c2017)
-      this.items.push({ kind: 'crop', name: 'garden plot', zone: new Phaser.Geom.Rectangle(x-28,y-24,56,48), sprite: crop, stage: 0 })
+      const x = 135 + (i % 3) * 80
+      const y = 456 + Math.floor(i / 3) * 55
+      const crop = this.add.rectangle(x, y, 36, 30, 0x5a3a24).setStrokeStyle(2, 0x2c2017)
+      this.add.rectangle(x, y + 20, 50, 5, 0x3d291b, 0.5)
+      this.items.push({ kind: 'crop', name: 'garden plot', zone: new Phaser.Geom.Rectangle(x - 30, y - 25, 60, 50), sprite: crop, stage: 0 })
     }
-    this.items.push({ kind: 'pond', name: 'fishing spot', zone: new Phaser.Geom.Rectangle(625, 100, 260, 160) })
-    this.items.push({ kind: 'puzzle', name: 'match-3 memory shrine', zone: new Phaser.Geom.Rectangle(425, 265, 120, 105) })
-    this.items.push({ kind: 'house', name: 'home base', zone: new Phaser.Geom.Rectangle(595, 360, 260, 190) })
 
-    this.memoryPost(500, 115, 'University\nwhere the story quietly started')
-    this.memoryPost(505, 410, 'Rave night\nsomeone bumped us together')
-    this.memoryPost(810, 315, 'Dubai → Canada\nhome is wherever we build it')
+    this.items.push({ kind: 'pond', name: 'fishing spot', zone: new Phaser.Geom.Rectangle(610, 92, 285, 178), cooldown: 0 })
+    this.items.push({ kind: 'puzzle', name: 'match-3 memory shrine', zone: new Phaser.Geom.Rectangle(420, 262, 130, 104) })
+    this.items.push({ kind: 'house', name: 'home base', zone: new Phaser.Geom.Rectangle(594, 360, 262, 188) })
+
+    this.memory(502, 132, 'University', 'Years of almost, then timing finally got smart.')
+    this.memory(505, 455, 'Rave Night', 'Somebody bumped you together. Best collision physics ever.')
+    this.memory(835, 338, 'Dubai Year', 'New city, new rhythm, same team.')
+    this.memory(718, 520, 'Canada Home', 'Back home, building the next chapter soft and loud.')
   }
 
-  private addPlayer() {
-    this.player = this.add.container(480, 520)
-    const shadow = this.add.ellipse(0, 18, 30, 10, 0x000000, 0.25)
-    const body = this.add.rectangle(0, 3, 22, 28, 0x1d2430).setStrokeStyle(2, 0x0b0e13)
-    const head = this.add.circle(0, -18, 13, 0xb87555).setStrokeStyle(2, 0x2a1711)
-    const hair = this.add.rectangle(0, -27, 22, 8, 0x17110f)
-    const beard = this.add.rectangle(0, -10, 18, 9, 0x1a1110)
-    this.player.add([shadow, body, head, hair, beard])
-  }
-
-  private addCats() {
-    this.catPengu = this.cat(-80, -80, 0xb8874f, 'Pengu')
-    this.catMila = this.cat(-80, -80, 0xd4c6b2, 'Mila')
-    this.catPengu.setVisible(false)
-    this.catMila.setVisible(false)
+  private addCharacters() {
+    this.person(690, 430, 0xf7d7bd, 0x2a201e, 0xff91ce, 'B')
+    this.player = this.person(480, 525, 0xb87555, 0x17110f, 0x1d2430, 'N')
+    this.pengu = this.cat(-90, -90, 0xb88955, 'Pengu')
+    this.mila = this.cat(-90, -90, 0xd9cbb7, 'Mila')
+    this.pengu.setVisible(false)
+    this.mila.setVisible(false)
   }
 
   private addUI() {
-    this.add.rectangle(480, 24, 960, 48, 0x0e1816, 0.82)
-    this.add.text(16, 11, 'Bb2D', { fontFamily: 'monospace', fontSize: '22px', color: '#ffe7a8' })
-    this.ui = this.add.text(104, 12, '', { fontFamily: 'monospace', fontSize: '14px', color: '#ecffd8' })
-    this.prompt = this.add.text(16, 596, '', { fontFamily: 'monospace', fontSize: '15px', color: '#ffffff', backgroundColor: '#10201ccc', padding: { x: 8, y: 6 } })
-    this.toast = this.add.text(480, 68, '', { fontFamily: 'monospace', fontSize: '15px', color: '#fff0c8', backgroundColor: '#21170dcc', padding: { x: 10, y: 6 } }).setOrigin(0.5)
-    this.add.text(480, 575, '', { fontFamily: 'monospace', fontSize: '14px', color: '#ffd7ed', align: 'center', backgroundColor: '#241325cc', padding: { x: 10, y: 6 } }).setOrigin(0.5)
+    this.add.rectangle(480, 24, 960, 48, 0x0e1816, 0.88)
+    this.add.text(16, 9, 'Bb2D', { fontFamily: 'monospace', fontSize: '24px', color: '#ffe7a8' })
+    this.ui = this.add.text(102, 11, '', { fontFamily: 'monospace', fontSize: '14px', color: '#ecffd8' })
+    this.objective = this.add.text(728, 9, '', { fontFamily: 'monospace', fontSize: '12px', color: '#ffd7ed', align: 'right' }).setOrigin(0, 0)
+    this.prompt = this.add.text(16, 592, '', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff', backgroundColor: '#10201cdd', padding: { x: 8, y: 6 } })
+    this.toast = this.add.text(480, 68, '', { fontFamily: 'monospace', fontSize: '15px', color: '#fff0c8', backgroundColor: '#21170ddd', padding: { x: 10, y: 6 }, align: 'center' }).setOrigin(0.5)
     this.refreshUI()
   }
 
+  private showIntro() {
+    this.overlay = this.add.container(0, 0).setName('intro')
+    this.overlay.add(this.add.rectangle(480, 320, 960, 640, 0x08090d, 0.86))
+    this.overlay.add(this.add.text(480, 126, 'Bb2D', { fontFamily: 'monospace', fontSize: '56px', color: '#ffe7a8' }).setOrigin(0.5))
+    this.overlay.add(this.add.text(480, 184, 'A tiny cozy game about building home together.', { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5))
+    this.overlay.add(this.add.text(480, 265,
+      'Gather wood, herbs, fish, blooms, memories, and hearts.\nDecorate the home base, unlock Pengu and Mila, then talk to B.\n\nMove: WASD/arrows   E: interact   F: fish   P: puzzle   B: decorate\n\nPress Enter or Space to start.',
+      { fontFamily: 'monospace', fontSize: '16px', color: '#dfffe1', align: 'center', lineSpacing: 8 }
+    ).setOrigin(0.5))
+  }
+
+  private dismissOverlay() {
+    if (this.overlay && !this.inPuzzle) {
+      this.overlay.destroy(true)
+      this.overlay = undefined
+      this.gameStarted = true
+      this.say('Goal: prepare the home and collect enough memories for the finale.')
+    }
+  }
+
   private interact() {
+    if (!this.gameStarted || this.endingShown) return
     const item = this.nearItem()
     if (!item) return this.say('Move near something and press E.')
-    if (item.kind === 'tree') {
-      this.inv.wood++
-      this.say('+1 wood. The forest is helping with the house.')
+
+    if (item.kind === 'tree') return this.gather(item, 'wood')
+    if (item.kind === 'herb') return this.gather(item, 'herbs')
+    if (item.kind === 'crop') return this.tendCrop(item)
+    if (item.kind === 'memory') return this.collectMemory(item)
+    if (item.kind === 'puzzle') return this.openPuzzle()
+    if (item.kind === 'house') return this.decorate()
+    if (item.kind === 'wife') return this.tryEnding()
+  }
+
+  private gather(item: WorldItem, res: 'wood' | 'herbs') {
+    const now = this.time.now
+    if ((item.cooldown ?? 0) > now) return this.say(res === 'wood' ? 'This tree needs a breather.' : 'Those herbs need a moment to regrow.')
+    this.inv[res]++
+    this.total[res]++
+    item.cooldown = now + 1100
+    this.pulse(item.sprite)
+    this.say(res === 'wood' ? '+1 wood. Future furniture, obviously.' : '+1 herb. Wellness inventory upgraded.')
+    this.refreshUI()
+  }
+
+  private tendCrop(item: WorldItem) {
+    item.stage = Math.min((item.stage ?? 0) + 1, 3)
+    const colors = [0x5a3a24, 0x3d7d36, 0x79b947, 0xffc86b]
+    if (item.sprite instanceof Phaser.GameObjects.Rectangle) item.sprite.fillColor = colors[item.stage]
+    if (item.stage === 3) {
+      this.inv.blooms++
+      this.total.blooms++
+      item.stage = 0
+      this.time.delayedCall(250, () => { if (item.sprite instanceof Phaser.GameObjects.Rectangle) item.sprite.fillColor = colors[0] })
+      this.say('+1 bloom. Garden delivered.')
+    } else {
+      this.say(item.stage === 1 ? 'Seeds planted.' : 'Watered. Almost blooming.')
     }
-    if (item.kind === 'herb') {
-      this.inv.herbs++
-      this.say('+1 wellness herb. Very her-coded.')
-    }
-    if (item.kind === 'crop') {
-      item.stage = ((item.stage ?? 0) + 1) % 4
-      const colors = [0x5a3a24, 0x3d7d36, 0x79b947, 0xffc86b]
-      ;(item.sprite as Phaser.GameObjects.Rectangle).fillColor = colors[item.stage]
-      if (item.stage === 3) { this.inv.blooms++; this.say('+1 bloom. Garden delivered.') }
-      else this.say(item.stage === 1 ? 'Seeds planted.' : 'Watered. Almost there.')
-    }
-    if (item.kind === 'puzzle') this.openPuzzle()
-    if (item.kind === 'house') this.decorate()
-    this.checkUnlocks()
     this.refreshUI()
   }
 
   private fish() {
+    if (!this.gameStarted || this.endingShown) return
     const item = this.nearItem('pond')
     if (!item) return this.say('Stand by the pond and press F to fish.')
+    const now = this.time.now
+    if ((item.cooldown ?? 0) > now) return this.say('Let the pond settle for a second.')
+    item.cooldown = now + 900
     this.inv.fish++
+    this.total.fish++
+    const fishIcon = this.add.text(this.player.x + 12, this.player.y - 42, '🐟', { fontSize: '24px' }).setDepth(10)
+    this.tweens.add({ targets: fishIcon, y: fishIcon.y - 28, alpha: 0, duration: 900, onComplete: () => fishIcon.destroy() })
     this.say('+1 fish. Quiet pond, good luck.')
     this.refreshUI()
   }
 
+  private collectMemory(item: WorldItem) {
+    if (item.collected) return this.say(item.message ?? 'Already remembered.')
+    item.collected = true
+    this.inv.memories++
+    this.inv.hearts++
+    if (item.sprite instanceof Phaser.GameObjects.Container) item.sprite.setAlpha(0.55)
+    this.say(`${item.name} remembered. +1 heart.`)
+    this.showMemoryCard(item.name, item.message ?? '')
+    this.checkUnlocks()
+    this.refreshUI()
+  }
+
+  private showMemoryCard(title: string, body: string) {
+    const card = this.add.container(0, 0)
+    card.add(this.add.rectangle(480, 320, 560, 190, 0x120e18, 0.94).setStrokeStyle(3, 0xffc6e9))
+    card.add(this.add.text(480, 270, title, { fontFamily: 'monospace', fontSize: '24px', color: '#ffe7a8' }).setOrigin(0.5))
+    card.add(this.add.text(480, 325, body, { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff', align: 'center', wordWrap: { width: 500 } }).setOrigin(0.5))
+    card.add(this.add.text(480, 386, 'A memory goes into the house.', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd7ed' }).setOrigin(0.5))
+    this.time.delayedCall(2300, () => card.destroy(true))
+  }
+
   private decorate() {
+    if (!this.gameStarted || this.endingShown) return
     if (!this.nearItem('house')) return this.say('Decorating happens at home. Press B inside the base.')
-    if (this.inv.decor <= 0 && this.inv.wood < 2 && this.inv.herbs < 1 && this.inv.fish < 1) return this.say('Need decor tokens or 2 wood + 1 herb + 1 fish.')
+    if (this.decorPlaced >= GOAL.decorPlaced) return this.say('The home is fully decorated. Talk to B when the goals are done.')
+    if (this.inv.decor <= 0 && (this.inv.wood < 2 || this.inv.herbs < 1 || this.inv.fish < 1)) {
+      return this.say('Need 1 decor token or 2 wood + 1 herb + 1 fish.')
+    }
     if (this.inv.decor > 0) this.inv.decor--
     else { this.inv.wood -= 2; this.inv.herbs--; this.inv.fish-- }
     this.decorPlaced++
-    const x = 625 + (this.decorPlaced % 5) * 38
-    const y = 415 + Math.floor(this.decorPlaced / 5) * 34
-    this.add.star(x, y, 5, 6, 14, [0xffc6e9,0xffe28a,0x98f5c2,0xc5b5ff][this.decorPlaced % 4]).setStrokeStyle(2, 0x513246)
-    this.say('New decoration placed. The base is getting softer.')
+    const spots = [[640,430],[690,420],[742,436],[632,485],[704,492],[774,485]]
+    const [x, y] = spots[this.decorPlaced - 1]
+    const colors = [0xffc6e9, 0xffe28a, 0x98f5c2, 0xc5b5ff, 0xffa38a, 0xa8e6ff]
+    this.add.star(x, y, 5, 7, 16, colors[this.decorPlaced - 1]).setStrokeStyle(2, 0x513246)
+    this.say(`Decoration ${this.decorPlaced}/${GOAL.decorPlaced} placed.`)
     this.refreshUI()
   }
 
   private openPuzzle() {
-    if (!this.nearItem('puzzle') && !this.keys.P.isDown) return this.say('Go to the memory shrine or press P nearby.')
+    if (!this.gameStarted || this.endingShown) return
+    if (!this.nearItem('puzzle')) return this.say('Go to the Memory Shrine and press P or E.')
     if (this.inPuzzle) return
     this.inPuzzle = true
-    const overlay = this.add.container(0, 0).setName('puzzle')
-    overlay.add(this.add.rectangle(480, 320, 960, 640, 0x08080c, 0.82))
-    overlay.add(this.add.text(480, 86, 'Match-3 Memories', { fontFamily: 'monospace', fontSize: '28px', color: '#ffe7a8' }).setOrigin(0.5))
-    overlay.add(this.add.text(480, 122, 'Click two adjacent tiles. Make a match to earn decor + hearts. ESC closes.', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5))
-    const icons = ['🎧','🌲','🐟','🌸','🥟']
+    const overlay = this.add.container(0, 0).setDepth(50).setName('puzzle')
+    overlay.add(this.add.rectangle(480, 320, 960, 640, 0x07080d, 0.88))
+    overlay.add(this.add.text(480, 72, 'Match-3 Memories', { fontFamily: 'monospace', fontSize: '30px', color: '#ffe7a8' }).setOrigin(0.5))
+    overlay.add(this.add.text(480, 112, 'Click adjacent tiles. Every match gives +1 heart and +1 decor. ESC closes.', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5))
+
+    const pattern = [
+      ['🎧', '🎧', '🌲', '🎧', '🐟'],
+      ['🌸', '🐟', '🥟', '🌲', '🎧'],
+      ['🥟', '🌸', '🎧', '🐟', '🌲'],
+      ['🎧', '🥟', '🌸', '🌲', '🐟'],
+      ['🐟', '🌲', '🎧', '🥟', '🌸'],
+    ]
     const board: Phaser.GameObjects.Text[][] = []
+    const boxes: Phaser.GameObjects.Rectangle[][] = []
     let selected: { r: number, c: number } | null = null
-    const drawTile = (r: number, c: number, v: string) => {
-      const x = 330 + c * 62, y = 170 + r * 62
-      const bg = this.add.rectangle(x, y, 54, 54, 0x2b3d54).setStrokeStyle(2, 0xffe7a8)
-      const t = this.add.text(x, y, v, { fontFamily: 'sans-serif', fontSize: '28px' }).setOrigin(0.5).setInteractive()
-      overlay.add([bg, t])
-      t.on('pointerdown', () => {
-        if (!selected) { selected = { r, c }; bg.setStrokeStyle(4, 0xff91ce); return }
-        const adj = Math.abs(selected.r-r)+Math.abs(selected.c-c) === 1
-        if (adj) {
+
+    const resetBoard = () => {
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) board[r][c].setText(pattern[r][c])
+    }
+
+    const resolve = () => {
+      const matched: boolean[][] = Array.from({ length: 5 }, () => Array(5).fill(false))
+      let found = false
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) {
+        const v = board[r][c].text
+        if (v === board[r][c + 1].text && v === board[r][c + 2].text) { matched[r][c] = matched[r][c + 1] = matched[r][c + 2] = true; found = true }
+      }
+      for (let c = 0; c < 5; c++) for (let r = 0; r < 3; r++) {
+        const v = board[r][c].text
+        if (v === board[r + 1][c].text && v === board[r + 2][c].text) { matched[r][c] = matched[r + 1][c] = matched[r + 2][c] = true; found = true }
+      }
+      if (!found) return false
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) if (matched[r][c]) {
+        board[r][c].setText('✨')
+        this.tweens.add({ targets: board[r][c], scale: 1.3, yoyo: true, duration: 120 })
+      }
+      this.time.delayedCall(220, resetBoard)
+      this.inv.decor++
+      this.inv.hearts++
+      this.checkUnlocks()
+      this.refreshUI()
+      this.say('Memory match made. +1 decor, +1 heart.')
+      return true
+    }
+
+    const setSelected = (r: number, c: number) => {
+      boxes.flat().forEach(b => b.setStrokeStyle(2, 0xffe7a8))
+      boxes[r][c].setStrokeStyle(4, 0xff91ce)
+      selected = { r, c }
+    }
+
+    for (let r = 0; r < 5; r++) {
+      board[r] = []
+      boxes[r] = []
+      for (let c = 0; c < 5; c++) {
+        const x = 330 + c * 62
+        const y = 162 + r * 62
+        const bg = this.add.rectangle(x, y, 54, 54, 0x293a52).setStrokeStyle(2, 0xffe7a8).setInteractive()
+        const t = this.add.text(x, y, pattern[r][c], { fontFamily: 'sans-serif', fontSize: '28px' }).setOrigin(0.5).setInteractive()
+        overlay.add([bg, t])
+        boxes[r][c] = bg
+        board[r][c] = t
+        const click = () => {
+          if (!selected) return setSelected(r, c)
+          const adj = Math.abs(selected.r - r) + Math.abs(selected.c - c) === 1
+          if (!adj) return setSelected(r, c)
           const a = board[selected.r][selected.c].text
           board[selected.r][selected.c].setText(board[r][c].text)
           board[r][c].setText(a)
-          const matched = this.resolveMatches(board, icons)
-          if (matched) {
-            this.inv.decor++; this.inv.hearts++
-            this.say('Memory match made. +1 decor, +1 heart.')
-            this.checkUnlocks(); this.refreshUI()
+          if (!resolve()) {
+            board[r][c].setText(board[selected.r][selected.c].text)
+            board[selected.r][selected.c].setText(a)
+            this.say('No match. Try another swap.')
           }
+          selected = null
+          boxes.flat().forEach(b => b.setStrokeStyle(2, 0xffe7a8))
         }
-        selected = null
-        overlay.each((obj: Phaser.GameObjects.GameObject) => { if (obj instanceof Phaser.GameObjects.Rectangle) obj.setStrokeStyle(2, 0xffe7a8) })
-      })
-      return t
+        bg.on('pointerdown', click)
+        t.on('pointerdown', click)
+      }
     }
-    for (let r = 0; r < 5; r++) {
-      board[r] = []
-      for (let c = 0; c < 5; c++) board[r][c] = drawTile(r, c, icons[(r + c + Phaser.Math.Between(0, 2)) % icons.length])
-    }
-  }
 
-  private resolveMatches(board: Phaser.GameObjects.Text[][], icons: string[]) {
-    let found = false
-    for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) {
-      if (board[r][c].text === board[r][c+1].text && board[r][c].text === board[r][c+2].text) {
-        found = true; for (let k = 0; k < 3; k++) board[r][c+k].setText(Phaser.Utils.Array.GetRandom(icons))
-      }
-    }
-    for (let c = 0; c < 5; c++) for (let r = 0; r < 3; r++) {
-      if (board[r][c].text === board[r+1][c].text && board[r][c].text === board[r+2][c].text) {
-        found = true; for (let k = 0; k < 3; k++) board[r+k][c].setText(Phaser.Utils.Array.GetRandom(icons))
-      }
-    }
-    return found
+    // Guaranteed move: swap the tree between the two DJ tiles with the DJ tile on its right.
+    overlay.add(this.add.text(480, 505, 'Hint: swap the tree between the headphones with the headphone on its right. 🎧', { fontFamily: 'monospace', fontSize: '14px', color: '#ffd7ed' }).setOrigin(0.5))
   }
 
   private closePuzzle() {
-    const overlay = this.children.getByName('puzzle') as Phaser.GameObjects.Container | null
-    if (overlay) overlay.destroy(true)
+    const puzzle = this.children.getByName('puzzle') as Phaser.GameObjects.Container | null
+    if (puzzle) puzzle.destroy(true)
     this.inPuzzle = false
   }
 
-  private checkUnlocks() {
-    if (!this.unlockedPengu && this.inv.hearts >= 1) {
-      this.unlockedPengu = true; this.catPengu?.setVisible(true); this.say('Pengu unlocked: feisty, sweet, already judging the furniture.')
+  private tryEnding() {
+    const missing = this.missingGoals()
+    if (missing.length) return this.say(`Almost. Still need: ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? '...' : ''}`)
+    this.showEnding()
+  }
+
+  private missingGoals() {
+    const missing: string[] = []
+    if (this.total.wood < GOAL.wood) missing.push(`${GOAL.wood - this.total.wood} wood`)
+    if (this.total.herbs < GOAL.herbs) missing.push(`${GOAL.herbs - this.total.herbs} herbs`)
+    if (this.total.fish < GOAL.fish) missing.push(`${GOAL.fish - this.total.fish} fish`)
+    if (this.total.blooms < GOAL.blooms) missing.push(`${GOAL.blooms - this.total.blooms} blooms`)
+    if (this.inv.hearts < GOAL.hearts) missing.push(`${GOAL.hearts - this.inv.hearts} hearts`)
+    if (this.decorPlaced < GOAL.decorPlaced) missing.push(`${GOAL.decorPlaced - this.decorPlaced} decor`)
+    if (this.inv.memories < GOAL.memories) missing.push(`${GOAL.memories - this.inv.memories} memories`)
+    return missing
+  }
+
+  private showEnding() {
+    this.endingShown = true
+    const end = this.add.container(0, 0).setDepth(100)
+    end.add(this.add.rectangle(480, 320, 960, 640, 0x08090d, 0.92))
+    end.add(this.add.text(480, 92, 'Home Complete', { fontFamily: 'monospace', fontSize: '42px', color: '#ffe7a8' }).setOrigin(0.5))
+    end.add(this.add.text(480, 190,
+      'From university hallways to rave lights,\nfrom DJ nights to Dubai days,\nfrom Canada again to whatever comes next...\n\nWe keep building the soft little world.\nOne memory, one meal, one cat hair, one home at a time.\n\nHappy everything, B. ♡',
+      { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff', align: 'center', lineSpacing: 9, wordWrap: { width: 760 } }
+    ).setOrigin(0.5))
+    end.add(this.add.text(480, 492, 'Press R to play again', { fontFamily: 'monospace', fontSize: '15px', color: '#ffd7ed' }).setOrigin(0.5))
+    for (let i = 0; i < 26; i++) {
+      const heart = this.add.text(Phaser.Math.Between(90, 870), Phaser.Math.Between(80, 570), Phaser.Utils.Array.GetRandom(['♡','✦','✿']), { fontSize: `${Phaser.Math.Between(14, 28)}px`, color: '#ffc6e9' }).setAlpha(0.55)
+      end.add(heart)
+      this.tweens.add({ targets: heart, y: heart.y - Phaser.Math.Between(12, 34), alpha: 0.15, yoyo: true, repeat: -1, duration: Phaser.Math.Between(1400, 2400) })
     }
-    if (!this.unlockedMila && this.inv.hearts >= 3) {
-      this.unlockedMila = true; this.catMila?.setVisible(true); this.say('Mila unlocked: chonky little cloud acquired.')
+  }
+
+  private checkUnlocks() {
+    if (this.inv.hearts >= 1 && this.pengu && !this.pengu.visible) {
+      this.pengu.setVisible(true)
+      this.say('Pengu joined: feisty, sweet, judging the furniture.')
+    }
+    if (this.inv.hearts >= 3 && this.mila && !this.mila.visible) {
+      this.mila.setVisible(true)
+      this.say('Mila joined: tiny cloud, maximum opinions.')
     }
   }
 
   private nearItem(kind?: ItemKind) {
-    return this.items.find(i => (!kind || i.kind === kind) && Phaser.Geom.Rectangle.Contains(i.zone, this.player.x, this.player.y))
+    const hits = this.items.filter(i => (!kind || i.kind === kind) && Phaser.Geom.Rectangle.Contains(i.zone, this.player.x, this.player.y))
+    if (kind) return hits[0]
+    const priority: Record<ItemKind, number> = { wife: 0, memory: 1, puzzle: 2, crop: 3, pond: 4, herb: 5, tree: 6, house: 7 }
+    return hits.sort((a, b) => priority[a.kind] - priority[b.kind])[0]
   }
 
   private updatePrompt() {
     const item = this.nearItem()
-    const base = 'Move: WASD/arrows  Interact: E  Fish: F  Puzzle: P  Decorate: B'
+    const base = 'Move WASD/arrows  E interact  F fish  P puzzle  B decorate  R restart'
     this.prompt.setText(item ? `${base}\nNear: ${item.name}` : base)
   }
 
   private refreshUI() {
-    this.ui.setText(`wood ${this.inv.wood}  herbs ${this.inv.herbs}  fish ${this.inv.fish}  blooms ${this.inv.blooms}  hearts ${this.inv.hearts}  decor ${this.inv.decor}`)
+    this.ui.setText(`wood ${this.total.wood}/${GOAL.wood}  herbs ${this.total.herbs}/${GOAL.herbs}  fish ${this.total.fish}/${GOAL.fish}  blooms ${this.total.blooms}/${GOAL.blooms}  hearts ${this.inv.hearts}/${GOAL.hearts}  decor ${this.decorPlaced}/${GOAL.decorPlaced}  memories ${this.inv.memories}/${GOAL.memories}`)
+    const missing = this.missingGoals()
+    this.objective.setText(missing.length ? `Goal: prepare home\nNeed: ${missing.slice(0, 2).join(', ')}` : 'Goal ready:\ntalk to B')
   }
 
   private say(text: string) {
     this.toast.setText(text)
     this.tweens.killTweensOf(this.toast)
     this.toast.setAlpha(1)
-    this.tweens.add({ targets: this.toast, alpha: 0, delay: 2600, duration: 900 })
+    this.tweens.add({ targets: this.toast, alpha: 0, delay: 2600, duration: 700 })
   }
 
-  private label(x: number, y: number, text: string) {
-    this.add.text(x, y, text, { fontFamily: 'monospace', fontSize: '14px', color: '#ffe7a8', backgroundColor: '#10201caa', padding: { x: 6, y: 3 } })
+  private pulse(target?: Phaser.GameObjects.GameObject) {
+    if (!target) return
+    this.tweens.add({ targets: target, scaleX: 1.07, scaleY: 1.07, yoyo: true, duration: 90 })
   }
 
-  private memoryPost(x: number, y: number, text: string) {
-    this.add.rectangle(x, y, 120, 54, 0x2b203a).setStrokeStyle(2, 0xffc6e9)
-    this.add.text(x, y, text, { fontFamily: 'monospace', fontSize: '11px', color: '#ffd7ed', align: 'center' }).setOrigin(0.5)
+  private memory(x: number, y: number, title: string, message: string) {
+    const c = this.add.container(x, y)
+    c.add(this.add.rectangle(0, 0, 122, 58, 0x2b203a).setStrokeStyle(2, 0xffc6e9))
+    c.add(this.add.text(0, -10, title, { fontFamily: 'monospace', fontSize: '12px', color: '#ffe7a8', align: 'center' }).setOrigin(0.5))
+    c.add(this.add.text(0, 12, 'press E', { fontFamily: 'monospace', fontSize: '10px', color: '#ffd7ed' }).setOrigin(0.5))
+    this.items.push({ kind: 'memory', name: title, zone: new Phaser.Geom.Rectangle(x - 61, y - 29, 122, 58), sprite: c, message })
   }
 
   private tree(x: number, y: number) {
-    this.add.rectangle(x, y + 17, 12, 28, 0x6b4324)
-    this.add.circle(x, y, 28, 0x214f35).setStrokeStyle(2, 0x153824)
-    this.add.circle(x - 15, y + 6, 16, 0x2f6b42)
-    this.add.circle(x + 15, y + 8, 17, 0x2f6b42)
+    const c = this.add.container(x, y)
+    c.add(this.add.rectangle(0, 18, 12, 30, 0x6b4324))
+    c.add(this.add.circle(0, 0, 28, 0x214f35).setStrokeStyle(2, 0x153824))
+    c.add(this.add.circle(-15, 6, 16, 0x2f6b42))
+    c.add(this.add.circle(15, 8, 17, 0x2f6b42))
+    return c
   }
 
   private flower(x: number, y: number) {
-    this.add.circle(x, y, 10, 0xff91ce)
-    this.add.circle(x - 9, y + 2, 7, 0xffd1e9)
-    this.add.circle(x + 9, y + 2, 7, 0xffd1e9)
-    this.add.rectangle(x, y + 16, 4, 22, 0x3d7d36)
+    const c = this.add.container(x, y)
+    c.add(this.add.rectangle(0, 16, 4, 22, 0x3d7d36))
+    c.add(this.add.circle(0, 0, 10, 0xff91ce))
+    c.add(this.add.circle(-9, 2, 7, 0xffd1e9))
+    c.add(this.add.circle(9, 2, 7, 0xffd1e9))
+    return c
+  }
+
+  private person(x: number, y: number, skin: number, hairColor: number, shirt: number, badge: string) {
+    const p = this.add.container(x, y)
+    p.add(this.add.ellipse(0, 19, 30, 10, 0x000000, 0.25))
+    p.add(this.add.rectangle(0, 4, 24, 30, shirt).setStrokeStyle(2, 0x0b0e13))
+    p.add(this.add.circle(0, -18, 13, skin).setStrokeStyle(2, 0x2a1711))
+    p.add(this.add.rectangle(0, -28, 23, 9, hairColor))
+    p.add(this.add.text(0, 3, badge, { fontFamily: 'monospace', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5))
+    if (badge === 'B') this.items.push({ kind: 'wife', name: 'B', zone: new Phaser.Geom.Rectangle(x - 28, y - 42, 56, 76) })
+    return p
   }
 
   private cat(x: number, y: number, color: number, name: string) {
     const c = this.add.container(x, y)
-    c.add([this.add.ellipse(0, 10, 36, 20, color), this.add.circle(18, 2, 12, color), this.add.triangle(12, -8, 0, 0, 8, -12, 16, 0, color), this.add.triangle(24, -8, 0, 0, 8, -12, 16, 0, color), this.add.text(-18, 24, name, { fontFamily: 'monospace', fontSize: '10px', color: '#fff' })])
+    c.add(this.add.ellipse(0, 10, 36, 20, color))
+    c.add(this.add.circle(18, 2, 12, color))
+    c.add(this.add.triangle(12, -8, 0, 0, 8, -12, 16, 0, color))
+    c.add(this.add.triangle(24, -8, 0, 0, 8, -12, 16, 0, color))
+    c.add(this.add.text(-20, 25, name, { fontFamily: 'monospace', fontSize: '10px', color: '#fff' }))
     return c
   }
 
-  private updateCats(delta: number) {
+  private followCats(delta: number) {
     const follow = (cat: Phaser.GameObjects.Container | undefined, dist: number) => {
       if (!cat?.visible) return
-      const targetX = this.player.x - dist
-      const targetY = this.player.y + 30
-      cat.x += (targetX - cat.x) * 0.0025 * delta
-      cat.y += (targetY - cat.y) * 0.0025 * delta
+      cat.x += (this.player.x - dist - cat.x) * 0.0025 * delta
+      cat.y += (this.player.y + 34 - cat.y) * 0.0025 * delta
     }
-    follow(this.catPengu, 48); follow(this.catMila, 86)
+    follow(this.pengu, 50)
+    follow(this.mila, 88)
+  }
+
+  private animateWorld(delta: number) {
+    this.fireflies.forEach((f, i) => {
+      f.x += Math.sin((this.time.now + i * 177) / 800) * 0.012 * delta
+      f.y += Math.cos((this.time.now + i * 131) / 900) * 0.010 * delta
+    })
+  }
+
+  private restartGame() {
+    this.scene.restart()
   }
 }
 
@@ -316,7 +536,7 @@ const config: Phaser.Types.Core.GameConfig = {
   width: 960,
   height: 640,
   pixelArt: true,
-  backgroundColor: '#172f27',
+  backgroundColor: '#142820',
   scene: Bb2DScene,
 }
 
