@@ -12,6 +12,7 @@ type WorldItem = {
   cooldown?: number
   collected?: boolean
   message?: string
+  marker?: Phaser.GameObjects.GameObject
 }
 
 type Inventory = {
@@ -115,6 +116,7 @@ class Bb2DScene extends Phaser.Scene {
   private fireflies: Phaser.GameObjects.Arc[] = []
   private blockers: Phaser.Geom.Rectangle[] = []
   private minimap?: Phaser.GameObjects.Graphics
+  private moveTarget?: Phaser.Math.Vector2
   private audio = new AudioKit()
 
   constructor() { super('bb2d') }
@@ -126,7 +128,8 @@ class Bb2DScene extends Phaser.Scene {
       'tile-grass','tile-forest','tile-dirt','tile-water','tile-wood','heart-decor','home-rug',
       'water-sheet','water-ripple','waterfall','farm-soil0','farm-soil1','farm-tool',
       'farm-crop0','farm-crop1','farm-crop2','farm-crop3','farm-crop4','farm-crop5',
-      'map-ground','terrain-grass','terrain-path','terrain-dirt','terrain-grass-detail','terrain-dirt-round'
+      'map-ground','terrain-grass','terrain-path','terrain-dirt','terrain-grass-detail','terrain-dirt-round',
+      'dock','rave-light-pink','rave-light-blue','memory-sparkle','ending-frame'
     ].forEach(name => this.load.image(`cozy-${name}`, `gif/${name}.png`))
   }
 
@@ -161,6 +164,15 @@ class Bb2DScene extends Phaser.Scene {
     if (this.cursors.right?.isDown || this.keys.D.isDown) dx += speed
     if (this.cursors.up?.isDown || this.keys.W.isDown) dy -= speed
     if (this.cursors.down?.isDown || this.keys.S.isDown) dy += speed
+    if (dx || dy) this.moveTarget = undefined
+    if (!dx && !dy && this.moveTarget) {
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.moveTarget.x, this.moveTarget.y)
+      if (dist < 8) this.moveTarget = undefined
+      else {
+        dx = ((this.moveTarget.x - this.player.x) / dist) * speed
+        dy = ((this.moveTarget.y - this.player.y) / dist) * speed
+      }
+    }
     if (dx && dy) { dx *= 0.707; dy *= 0.707 }
 
     if (dx || dy) {
@@ -194,6 +206,11 @@ class Bb2DScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-B', () => this.decorate())
     this.input.keyboard!.on('keydown-R', () => this.restartGame())
     this.input.keyboard!.on('keydown-ESC', () => this.closePuzzle())
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.gameStarted || this.inPuzzle || this.endingShown) return
+      if (pointer.y < 82 || pointer.y > VIEW_H - 80) return
+      this.moveTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY)
+    })
   }
 
   private fixed<T extends Phaser.GameObjects.GameObject>(obj: T) {
@@ -274,8 +291,7 @@ class Bb2DScene extends Phaser.Scene {
 
     this.zone(1640, 110, 670, 460, 0x1f6880, 'Quiet Pond', 1760, 154)
     this.asset('pond-detail', 2020, 360, 2.2).setDepth(3)
-    this.add.rectangle(1888, 522, 205, 34, 0x9a7044, 0.95).setDepth(4)
-    this.add.rectangle(1888, 521, 170, 14, 0xd3a66b, 0.95).setDepth(4)
+    this.asset('dock', 1888, 522, 1).setDepth(4)
     this.block(1888, 522, 210, 38)
     this.blockingAsset('bench', 2180, 488, 1.25, 74, 32, 8).setDepth(4)
 
@@ -305,8 +321,9 @@ class Bb2DScene extends Phaser.Scene {
     this.zone(235, 1280, 460, 260, 0x5d3768, 'Rave Night', 350, 1320)
     this.blockingAsset('dj-booth', 480, 1420, 1.65, 90, 50, 14).setDepth(4)
     ;[[285,1380],[650,1380],[380,1300],[560,1300]].forEach(([x,y], i) => {
-      const beam = this.add.triangle(x, y, 0, 0, i % 2 ? -55 : 55, 115, i % 2 ? 45 : -45, 115, i % 2 ? 0x61d4ff : 0xff69b4, 0.24).setDepth(3)
-      this.tweens.add({ targets: beam, alpha: 0.08, yoyo: true, repeat: -1, duration: 900 + i * 160 })
+      const light = this.asset(i % 2 ? 'rave-light-blue' : 'rave-light-pink', x, y, 1).setDepth(3)
+      light.setFlipX(i % 2 === 1)
+      this.tweens.add({ targets: light, alpha: 0.55, scaleX: 1.08, yoyo: true, repeat: -1, duration: 900 + i * 160 })
     })
 
     this.zone(2020, 630, 350, 280, 0x6a5130, 'Dubai → Canada', 2115, 670)
@@ -387,20 +404,60 @@ class Bb2DScene extends Phaser.Scene {
     this.prompt = this.fixed(this.add.text(16, 586, '', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff', backgroundColor: '#10201cdd', padding: { x: 8, y: 6 } }))
     this.toast = this.fixed(this.add.text(480, 78, '', { fontFamily: 'monospace', fontSize: '15px', color: '#fff0c8', backgroundColor: '#21170ddd', padding: { x: 10, y: 6 }, align: 'center' }).setOrigin(0.5))
     this.minimap = this.fixed(this.add.graphics())
+    this.addTouchButtons()
     this.refreshUI()
     this.updateAreaLabel()
     this.updateMinimap()
   }
 
+  private addTouchButtons() {
+    const buttons: [string, number, () => void][] = [
+      ['E', 680, () => this.interact()],
+      ['F', 742, () => this.fish()],
+      ['P', 804, () => this.openPuzzle()],
+      ['B', 866, () => this.decorate()],
+    ]
+    buttons.forEach(([label, x, action]) => {
+      const bg = this.fixed(this.add.rectangle(x, 594, 48, 48, 0x21170d, 0.82).setStrokeStyle(2, 0xffe7a8, 0.85).setInteractive({ useHandCursor: true }))
+      const txt = this.fixed(this.add.text(x, 594, label, { fontFamily: 'monospace', fontSize: '20px', color: '#ffe7a8' }).setOrigin(0.5))
+      bg.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        pointer.event.stopPropagation()
+        this.moveTarget = undefined
+        action()
+      })
+      txt.setInteractive({ useHandCursor: true }).on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        pointer.event.stopPropagation()
+        this.moveTarget = undefined
+        action()
+      })
+    })
+  }
+
   private showIntro() {
     this.overlay = this.add.container(0, 0).setName('intro').setScrollFactor(0).setDepth(120)
-    this.overlay.add(this.add.rectangle(480, 320, 960, 640, 0x08090d, 0.88).setScrollFactor(0))
-    this.overlay.add(this.add.text(480, 108, 'Bb2D', { fontFamily: 'monospace', fontSize: '58px', color: '#ffe7a8' }).setOrigin(0.5).setScrollFactor(0))
-    this.overlay.add(this.add.text(480, 164, 'A tiny cozy game about building home together.', { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0))
-    this.overlay.add(this.add.text(480, 268,
-      'Have a wonderful adventure BB <3. Wandr the paths, collect memories,\ngather resources, solve the shrine puzzle, grow flowers,\ndecorate home, unlock Pengu and Mila,\nand talk to Noot when the house feels ready.\n\nMove: WASD/arrows   E: interact   F: fish   P: puzzle   B: decorate\n\nPress Enter or Space to start.',
+    this.overlay.add(this.add.rectangle(480, 320, 960, 640, 0x08090d, 0.92).setScrollFactor(0))
+    const card = this.add.container(480, 320).setScrollFactor(0)
+    card.add(this.add.image(-270, 145, 'cozy-cat-pengu').setScale(3.2).setAngle(-6))
+    card.add(this.add.image(270, 145, 'cozy-cat-mila').setScale(3.2).setAngle(6))
+    card.add(this.add.image(-180, -122, 'cozy-memory-sparkle').setScale(1.15))
+    card.add(this.add.image(180, -122, 'cozy-memory-sparkle').setScale(1.15))
+    card.add(this.add.image(0, 18, 'cozy-home-rug').setScale(4.2).setAlpha(0.32))
+    card.add(this.add.image(-70, 34, 'cozy-player').setScale(3.0))
+    card.add(this.add.image(70, 34, 'cozy-noot').setScale(3.0))
+    card.add(this.add.text(0, -190, 'Bb2D', { fontFamily: 'monospace', fontSize: '62px', color: '#ffe7a8', stroke: '#21131a', strokeThickness: 6 }).setOrigin(0.5))
+    card.add(this.add.text(0, -134, 'A tiny cozy adventure for BB.', { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5))
+    card.add(this.add.text(0, -60,
+      'Have a wonderful adventure BB <3. Wandr the paths, collect memories,\ngather resources, solve the shrine puzzle, grow flowers,\ndecorate home, unlock Pengu and Mila,\nand talk to Noot when the house feels ready.',
       { fontFamily: 'monospace', fontSize: '16px', color: '#dfffe1', align: 'center', lineSpacing: 8 }
-    ).setOrigin(0.5).setScrollFactor(0))
+    ).setOrigin(0.5))
+    card.add(this.add.text(0, 205, 'Move: WASD/arrows or tap   E: interact   F: fish   P: puzzle   B: decorate', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd7ed' }).setOrigin(0.5))
+    const start = this.add.text(0, 248, 'Press Enter or Space to start', { fontFamily: 'monospace', fontSize: '18px', color: '#ffe7a8', backgroundColor: '#21170ddd', padding: { x: 14, y: 8 } }).setOrigin(0.5)
+    card.add(start)
+    this.overlay.add(card)
+    this.tweens.add({ targets: start, alpha: 0.62, yoyo: true, repeat: -1, duration: 900 })
+    card.each((child: Phaser.GameObjects.GameObject) => {
+      if (child instanceof Phaser.GameObjects.Image && child.texture.key === 'cozy-memory-sparkle') this.tweens.add({ targets: child, angle: 10, scale: 1.32, yoyo: true, repeat: -1, duration: 1100 })
+    })
   }
 
   private dismissOverlay() {
@@ -481,6 +538,7 @@ class Bb2DScene extends Phaser.Scene {
     this.inv.memories++
     this.inv.hearts++
     if (item.sprite instanceof Phaser.GameObjects.Container) item.sprite.setAlpha(0.55)
+    item.marker?.destroy()
     this.say(`${item.name} remembered. +1 heart.`)
     this.showMemoryCard(item.name, item.message ?? '')
     this.checkUnlocks()
@@ -709,18 +767,27 @@ class Bb2DScene extends Phaser.Scene {
     this.audio.blip('ending')
     this.endingShown = true
     const end = this.add.container(0, 0).setDepth(130).setScrollFactor(0)
-    end.add(this.add.rectangle(480, 320, 960, 640, 0x08090d, 0.93).setScrollFactor(0))
-    end.add(this.add.text(480, 88, 'Home Complete', { fontFamily: 'monospace', fontSize: '42px', color: '#ffe7a8' }).setOrigin(0.5).setScrollFactor(0))
-    end.add(this.add.text(480, 190,
+    end.add(this.add.rectangle(480, 320, 960, 640, 0x08090d, 0.94).setScrollFactor(0))
+    end.add(this.add.text(480, 66, 'Home Complete', { fontFamily: 'monospace', fontSize: '42px', color: '#ffe7a8', stroke: '#21131a', strokeThickness: 5 }).setOrigin(0.5).setScrollFactor(0))
+    const photo = this.add.container(480, 214).setScrollFactor(0)
+    photo.add(this.add.image(0, 0, 'cozy-ending-frame').setScale(1))
+    photo.add(this.add.image(-80, -12, 'cozy-player').setScale(2.5))
+    photo.add(this.add.image(8, -12, 'cozy-noot').setScale(2.5))
+    photo.add(this.add.image(96, 38, 'cozy-cat-pengu').setScale(2.05))
+    photo.add(this.add.image(138, 38, 'cozy-cat-mila').setScale(2.05))
+    photo.add(this.add.image(-136, 32, 'cozy-heart-decor').setScale(0.9))
+    end.add(photo)
+    end.add(this.add.text(480, 380,
       'From university hallways to rave lights,\nfrom Dubai days to Canada home,\nfrom wellness walks to kitchen dates,\nfrom Pengu and Mila judging every choice...\n\nWe keep building the soft little world.\nOne memory, one meal, one cat hair, one home at a time.\n\nHappy everything, B. ♡',
-      { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff', align: 'center', lineSpacing: 9, wordWrap: { width: 760 } }
+      { fontFamily: 'monospace', fontSize: '17px', color: '#ffffff', align: 'center', lineSpacing: 7, wordWrap: { width: 760 } }
     ).setOrigin(0.5).setScrollFactor(0))
-    end.add(this.add.text(480, 492, 'Press R to play again', { fontFamily: 'monospace', fontSize: '15px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
-    for (let i = 0; i < 26; i++) {
-      const heart = this.add.text(Phaser.Math.Between(90, 870), Phaser.Math.Between(80, 570), Phaser.Utils.Array.GetRandom(['♡','✦','✿']), { fontSize: `${Phaser.Math.Between(14, 28)}px`, color: '#ffc6e9' }).setAlpha(0.55).setScrollFactor(0)
+    end.add(this.add.text(480, 590, 'Press R to play again', { fontFamily: 'monospace', fontSize: '15px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
+    for (let i = 0; i < 34; i++) {
+      const heart = this.add.image(Phaser.Math.Between(90, 870), Phaser.Math.Between(80, 570), i % 3 === 0 ? 'cozy-memory-sparkle' : 'cozy-heart-decor').setScale(Phaser.Math.FloatBetween(0.28, 0.58)).setAlpha(0.55).setScrollFactor(0)
       end.add(heart)
-      this.tweens.add({ targets: heart, y: heart.y - Phaser.Math.Between(12, 34), alpha: 0.15, yoyo: true, repeat: -1, duration: Phaser.Math.Between(1400, 2400) })
+      this.tweens.add({ targets: heart, y: heart.y - Phaser.Math.Between(14, 42), angle: Phaser.Math.Between(-12, 12), alpha: 0.18, yoyo: true, repeat: -1, duration: Phaser.Math.Between(1400, 2600) })
     }
+    this.tweens.add({ targets: photo, y: 205, yoyo: true, repeat: -1, duration: 1800 })
   }
 
   private checkUnlocks() {
@@ -743,7 +810,7 @@ class Bb2DScene extends Phaser.Scene {
 
   private updatePrompt() {
     const item = this.nearItem()
-    const base = 'WASD/arrows move  E interact  F fish  P puzzle  B decorate  R restart'
+    const base = 'WASD/arrows or tap to move  E interact  F fish  P puzzle  B decorate  R restart'
     this.prompt.setText(item ? `${base}\nNear: ${item.name}` : base)
   }
 
@@ -842,7 +909,9 @@ class Bb2DScene extends Phaser.Scene {
     c.add(this.add.image(0, 0, 'cozy-memory').setScale(1))
     c.add(this.add.text(0, -11, title, { fontFamily: 'monospace', fontSize: '12px', color: '#fff3ba', align: 'center', stroke: '#21131a', strokeThickness: 3 }).setOrigin(0.5))
     c.add(this.add.text(0, 13, 'press E', { fontFamily: 'monospace', fontSize: '10px', color: '#ffd7ed', stroke: '#21131a', strokeThickness: 3 }).setOrigin(0.5))
-    this.items.push({ kind: 'memory', name: title, zone: new Phaser.Geom.Rectangle(x - 61, y - 29, 122, 58), sprite: c, message })
+    const marker = this.add.image(x, y - 42, 'cozy-memory-sparkle').setScale(0.85).setDepth(7)
+    this.tweens.add({ targets: marker, y: y - 52, alpha: 0.55, yoyo: true, repeat: -1, duration: 950 })
+    this.items.push({ kind: 'memory', name: title, zone: new Phaser.Geom.Rectangle(x - 61, y - 45, 122, 86), sprite: c, marker, message })
   }
 
   private tree(x: number, y: number) {
