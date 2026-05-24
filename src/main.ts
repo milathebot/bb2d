@@ -59,7 +59,7 @@ class Bb2DScene extends Phaser.Scene {
     ;[
       'player','noot','cat-pengu','cat-mila','tree','herb','crop0','crop1','crop2','crop3','house','shrine','sign','memory','decor','fish',
       'university','dj-booth','skyline','kitchen','pond-detail','garden-bed','forest-detail','home-detail','lamp','bench'
-    ].forEach(name => this.load.image(`cozy-${name}`, `cozy/${name}.svg`))
+    ].forEach(name => this.load.image(`cozy-${name}`, `gif/${name}.png`))
   }
 
   create() {
