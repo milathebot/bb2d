@@ -32,7 +32,7 @@ const GOAL = { wood: 8, herbs: 5, fish: 4, blooms: 4, hearts: 6, decorPlaced: 8,
 
 class Bb2DScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container
-  private playerSprite!: Phaser.GameObjects.Sprite
+  private playerSprite!: Phaser.GameObjects.Image
   private facing: 'down' | 'up' | 'left' | 'right' = 'down'
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys
   private keys!: Record<string, Phaser.Input.Keyboard.Key>
@@ -56,12 +56,8 @@ class Bb2DScene extends Phaser.Scene {
   constructor() { super('bb2d') }
 
   preload() {
-    this.load.spritesheet('tiny-town', 'kenney/tiny-town.png', { frameWidth: 16, frameHeight: 16 })
-    this.load.spritesheet('player-sheet', 'ninja/characters/player.png', { frameWidth: 16, frameHeight: 16 })
-    this.load.spritesheet('b-sheet', 'ninja/characters/b.png', { frameWidth: 16, frameHeight: 16 })
-    this.load.spritesheet('pet-sheet', 'ninja/pets/pet-dog.png', { frameWidth: 16, frameHeight: 16 })
-    this.load.image('pet-pengu', 'kenney/pengu.png')
-    this.load.image('pet-mila', 'kenney/mila.png')
+    ;['player','b','cat-pengu','cat-mila','tree','herb','crop0','crop1','crop2','crop3','house','shrine','sign','memory','decor','fish']
+      .forEach(name => this.load.image(`cozy-${name}`, `cozy/${name}.svg`))
   }
 
   create() {
@@ -71,7 +67,6 @@ class Bb2DScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H)
 
     this.drawWorld()
-    this.createAnimations()
     this.addInteractiveItems()
     this.addCharacters()
     this.addUI()
@@ -100,9 +95,10 @@ class Bb2DScene extends Phaser.Scene {
     if (dx || dy) {
       if (Math.abs(dx) > Math.abs(dy)) this.facing = dx > 0 ? 'right' : 'left'
       else this.facing = dy > 0 ? 'down' : 'up'
-      this.playerSprite.play(`player-${this.facing}`, true)
+      this.playerSprite.setFlipX(this.facing === 'left')
+      this.playerSprite.y = Math.sin(this.time.now / 95) * 2
     } else {
-      this.playerSprite.stop()
+      this.playerSprite.y = 0
     }
 
     this.player.x = Phaser.Math.Clamp(this.player.x + dx, 32, WORLD_W - 32)
@@ -112,22 +108,6 @@ class Bb2DScene extends Phaser.Scene {
     this.followCats(delta)
   }
 
-  private createAnimations() {
-    const make = (sheet: string, prefix: string) => {
-      const rows: Record<'down' | 'up' | 'left' | 'right', number> = { down: 0, up: 1, left: 2, right: 3 }
-      Object.entries(rows).forEach(([dir, row]) => {
-        this.anims.create({
-          key: `${prefix}-${dir}`,
-          frames: this.anims.generateFrameNumbers(sheet, { start: row * 4, end: row * 4 + 3 }),
-          frameRate: 7,
-          repeat: -1,
-        })
-      })
-    }
-    make('player-sheet', 'player')
-    make('b-sheet', 'b')
-    this.anims.create({ key: 'pet-walk', frames: this.anims.generateFrameNumbers('pet-sheet', { start: 0, end: 1 }), frameRate: 4, repeat: -1 })
-  }
 
   private bindControls() {
     this.cursors = this.input.keyboard!.createCursorKeys()
@@ -149,29 +129,30 @@ class Bb2DScene extends Phaser.Scene {
     return obj
   }
 
-  private tile(frame: number, x: number, y: number, scale = 2) {
-    return this.add.image(x, y, 'tiny-town', frame).setScale(scale)
+  private asset(name: string, x: number, y: number, scale = 1) {
+    return this.add.image(x, y, `cozy-${name}`).setScale(scale)
   }
 
-  private paint(frame: number, x: number, y: number, w: number, h: number, scale = 2, variants: number[] = []) {
-    const step = 16 * scale
+  private paint(color: number, x: number, y: number, w: number, h: number, alpha = 1) {
+    const step = 40
+    const g = this.add.graphics().setDepth(0)
+    g.fillStyle(color, alpha)
     for (let px = x + step / 2; px < x + w; px += step) {
       for (let py = y + step / 2; py < y + h; py += step) {
-        const f = variants.length ? Phaser.Utils.Array.GetRandom([frame, ...variants]) : frame
-        this.tile(f, px, py, scale).setDepth(0)
+        g.fillRoundedRect(px - 19, py - 19, 38, 38, 6)
       }
     }
   }
 
   private sign(x: number, y: number, label: string) {
     const s = this.add.container(x, y).setDepth(4)
-    s.add(this.add.image(0, 0, 'tiny-town', 89).setScale(2.2))
+    s.add(this.add.image(0, 0, 'cozy-sign').setScale(0.9))
     s.add(this.add.text(0, -6, label, { fontFamily: 'monospace', fontSize: '11px', color: '#fff3ba', align: 'center', stroke: '#2a1a1e', strokeThickness: 3 }).setOrigin(0.5))
     return s
   }
 
   private zone(x: number, y: number, w: number, h: number, color: number, label: string, lx: number, ly: number) {
-    this.add.rectangle(x + w / 2, y + h / 2, w, h, color, 0.12).setStrokeStyle(2, 0xffffff, 0.10).setDepth(1)
+    this.add.rectangle(x + w / 2, y + h / 2, w, h, color, 0.10).setStrokeStyle(2, 0xfff1bd, 0.10).setDepth(1)
     this.sign(lx, ly, label)
   }
 
@@ -191,34 +172,33 @@ class Bb2DScene extends Phaser.Scene {
 
   private drawWorld() {
     const g = this.add.graphics().setDepth(-2)
-    g.fillGradientStyle(0x17342b, 0x17342b, 0x275442, 0x275442, 1)
+    g.fillGradientStyle(0x183a2d, 0x183a2d, 0x2f6048, 0x2f6048, 1)
     g.fillRect(0, 0, WORLD_W, WORLD_H)
 
-    this.paint(0, 0, 64, WORLD_W, WORLD_H - 64, 2, [0, 1, 1])
+    this.paint(0x2e6a46, 0, 64, WORLD_W, WORLD_H - 64, 0.28)
+
     this.path([[1480, 940], [1260, 860], [1040, 665], [820, 620], [620, 775], [360, 890]])
     this.path([[1040, 665], [1190, 430], [1540, 300]])
     this.path([[1040, 665], [850, 400], [540, 260]])
 
-    this.zone(110, 130, 520, 410, 0x315f43, 'Moon Forest', 210, 164)
-    this.paint(0, 130, 170, 480, 330, 2, [1])
+    this.zone(110, 130, 520, 410, 0x274f3c, 'Moon Forest', 210, 164)
+    this.add.rectangle(370, 335, 455, 300, 0x24543a, 0.22).setDepth(1)
 
-    this.zone(1240, 150, 520, 360, 0x2b7890, 'Quiet Pond', 1358, 185)
-    this.paint(12, 1280, 205, 420, 250, 2, [13, 24])
-    this.add.circle(1510, 330, 150, 0x4db2c7, 0.18).setDepth(2)
-    this.add.circle(1510, 330, 96, 0x82dbef, 0.16).setDepth(2)
-    this.tile(84, 1442, 438, 3).setDepth(3)
+    this.zone(1240, 150, 520, 360, 0x256b83, 'Quiet Pond', 1358, 185)
+    this.add.ellipse(1510, 330, 380, 240, 0x4db2c7, 0.72).setDepth(2)
+    this.add.ellipse(1510, 330, 300, 175, 0x82dbef, 0.35).setDepth(2)
+    this.add.rectangle(1432, 455, 120, 28, 0x9a7044, 0.9).setDepth(3)
+    this.add.rectangle(1432, 455, 100, 12, 0xd3a66b, 0.9).setDepth(3)
 
-    this.zone(210, 820, 510, 300, 0x84613c, 'Garden', 300, 850)
-    this.paint(12, 255, 880, 430, 175, 2, [13, 24])
+    this.zone(210, 820, 510, 300, 0x7b5935, 'Garden', 300, 850)
+    this.add.rectangle(470, 972, 430, 180, 0x8a603b, 0.30).setDepth(1)
 
-    this.zone(1260, 780, 480, 340, 0x8b6d4c, 'Home Base', 1378, 820)
-    this.paint(60, 1305, 855, 380, 210, 2, [61])
-    this.tile(43, 1480, 890, 5).setDepth(3)
-    this.tile(51, 1480, 990, 5).setDepth(3)
-    this.tile(96, 1410, 1000, 3).setDepth(3)
+    this.zone(1260, 780, 480, 340, 0x7d6042, 'Home Base', 1378, 820)
+    this.add.rectangle(1480, 970, 400, 210, 0xbf8a60, 0.16).setDepth(1)
+    this.asset('house', 1480, 905, 1.05).setDepth(4)
 
     this.zone(870, 520, 330, 260, 0x44376a, 'Memory Shrine', 926, 548)
-    this.tile(88, 1038, 662, 4).setDepth(3)
+    this.asset('shrine', 1038, 662, 1.05).setDepth(4)
 
     this.zone(405, 190, 300, 180, 0x324b66, 'University', 500, 220)
     this.zone(690, 910, 300, 180, 0x5d3768, 'Rave Night', 774, 938)
@@ -230,9 +210,8 @@ class Bb2DScene extends Phaser.Scene {
       this.fireflies.push(dot)
     }
 
-    // Border trees make the world feel enclosed without adding collision headaches.
     for (let i = 0; i < 24; i++) {
-      this.tile(5, Phaser.Math.Between(30, WORLD_W - 30), Phaser.Utils.Array.GetRandom([92, WORLD_H - 42]), 2.5).setAlpha(0.75).setDepth(2)
+      this.asset('tree', Phaser.Math.Between(30, WORLD_W - 30), Phaser.Utils.Array.GetRandom([105, WORLD_H - 48]), 0.75).setAlpha(0.8).setDepth(2)
     }
   }
 
@@ -254,7 +233,7 @@ class Bb2DScene extends Phaser.Scene {
     for (let i = 0; i < 8; i++) {
       const x = 300 + (i % 4) * 90
       const y = 930 + Math.floor(i / 4) * 70
-      const crop = this.tile(12, x, y, 2.4)
+      const crop = this.asset('crop0', x, y, 1)
       this.add.ellipse(x, y + 22, 56, 10, 0x3d291b, 0.35).setDepth(2)
       this.items.push({ kind: 'crop', name: 'garden plot', zone: new Phaser.Geom.Rectangle(x - 34, y - 28, 68, 56), sprite: crop, stage: 0 })
     }
@@ -338,12 +317,12 @@ class Bb2DScene extends Phaser.Scene {
 
   private tendCrop(item: WorldItem) {
     item.stage = Math.min((item.stage ?? 0) + 1, 3)
-    if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setFrame([12, 25, 26, 27][item.stage])
+    if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setTexture(`cozy-crop${item.stage}`)
     if (item.stage === 3) {
       this.inv.blooms++
       this.total.blooms++
       item.stage = 0
-      this.time.delayedCall(250, () => { if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setFrame(12) })
+      this.time.delayedCall(250, () => { if (item.sprite instanceof Phaser.GameObjects.Image) item.sprite.setTexture('cozy-crop0') })
       this.floatText(item.sprite ?? this.player, '+bloom')
       this.say('+1 bloom. Garden delivered.')
     } else {
@@ -361,7 +340,7 @@ class Bb2DScene extends Phaser.Scene {
     item.cooldown = now + 850
     this.inv.fish++
     this.total.fish++
-    const fishIcon = this.add.text(this.player.x + 12, this.player.y - 42, '🐟', { fontSize: '24px' }).setDepth(20)
+    const fishIcon = this.add.image(this.player.x + 12, this.player.y - 42, 'cozy-fish').setDepth(20)
     this.tweens.add({ targets: fishIcon, y: fishIcon.y - 28, alpha: 0, duration: 900, onComplete: () => fishIcon.destroy() })
     this.say('+1 fish. Quiet pond, good luck.')
     this.refreshUI()
@@ -400,7 +379,7 @@ class Bb2DScene extends Phaser.Scene {
     this.decorPlaced++
     const spots = [[1360,925],[1420,910],[1505,930],[1580,925],[1345,1015],[1430,1032],[1530,1010],[1620,1030]]
     const [x, y] = spots[this.decorPlaced - 1]
-    this.add.star(x, y, 5, 7, 18, Phaser.Display.Color.RandomRGB(180, 255).color).setStrokeStyle(2, 0x513246).setDepth(5)
+    this.asset('decor', x, y, 0.9).setDepth(5)
     this.say(`Decoration ${this.decorPlaced}/${GOAL.decorPlaced} placed.`)
     this.refreshUI()
   }
@@ -599,29 +578,27 @@ class Bb2DScene extends Phaser.Scene {
 
   private memory(x: number, y: number, title: string, message: string) {
     const c = this.add.container(x, y).setDepth(5)
-    c.add(this.add.image(0, 0, 'tiny-town', 89).setScale(3))
+    c.add(this.add.image(0, 0, 'cozy-memory').setScale(1))
     c.add(this.add.text(0, -11, title, { fontFamily: 'monospace', fontSize: '12px', color: '#fff3ba', align: 'center', stroke: '#21131a', strokeThickness: 3 }).setOrigin(0.5))
     c.add(this.add.text(0, 13, 'press E', { fontFamily: 'monospace', fontSize: '10px', color: '#ffd7ed', stroke: '#21131a', strokeThickness: 3 }).setOrigin(0.5))
     this.items.push({ kind: 'memory', name: title, zone: new Phaser.Geom.Rectangle(x - 61, y - 29, 122, 58), sprite: c, message })
   }
 
   private tree(x: number, y: number) {
-    return this.tile(5, x, y, 2.8).setDepth(4)
+    return this.asset('tree', x, y, 0.9).setDepth(4)
   }
 
   private flower(x: number, y: number) {
-    return this.tile(1, x, y, 2.2).setDepth(4)
+    return this.asset('herb', x, y, 1).setDepth(4)
   }
 
   private person(x: number, y: number, _skin: number, _hairColor: number, _shirt: number, badge: string) {
     const p = this.add.container(x, y).setDepth(10)
     p.add(this.add.ellipse(0, 19, 30, 10, 0x000000, 0.22))
-    const sheet = badge === 'B' ? 'b-sheet' : 'player-sheet'
-    const sprite = this.add.sprite(0, 0, sheet, 0).setScale(2.25)
+    const sprite = this.add.image(0, 0, badge === 'B' ? 'cozy-b' : 'cozy-player').setScale(1)
     p.add(sprite)
     if (badge === 'N') this.playerSprite = sprite
     if (badge === 'B') {
-      sprite.play('b-down')
       p.add(this.add.text(0, -42, 'B', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd7ed', stroke: '#21131a', strokeThickness: 3 }).setOrigin(0.5))
       this.items.push({ kind: 'wife', name: 'B', zone: new Phaser.Geom.Rectangle(x - 40, y - 52, 80, 104) })
     }
@@ -631,8 +608,7 @@ class Bb2DScene extends Phaser.Scene {
   private cat(x: number, y: number, _color: number, name: string) {
     const c = this.add.container(x, y).setDepth(9)
     c.add(this.add.ellipse(2, 13, 24, 7, 0x000000, 0.18))
-    const pet = this.add.sprite(0, 0, 'pet-sheet', name === 'Pengu' ? 0 : 1).setScale(1.25)
-    pet.play('pet-walk')
+    const pet = this.add.image(0, 0, name === 'Pengu' ? 'cozy-cat-pengu' : 'cozy-cat-mila').setScale(1)
     c.add(pet)
     c.add(this.add.text(-16, 22, name, { fontFamily: 'monospace', fontSize: '10px', color: '#fff', stroke: '#1b1112', strokeThickness: 3 }))
     return c
