@@ -133,6 +133,7 @@ class Bb2DScene extends Phaser.Scene {
   private fireflies: Phaser.GameObjects.Arc[] = []
   private blockers: Phaser.Geom.Rectangle[] = []
   private minimap?: Phaser.GameObjects.Graphics
+  private hud?: Phaser.GameObjects.Graphics
   private moveTarget?: Phaser.Math.Vector2
   private lastChapter = -1
   private loadedFromSave = false
@@ -440,41 +441,84 @@ class Bb2DScene extends Phaser.Scene {
   }
 
   private addUI() {
-    this.fixed(this.add.rectangle(480, 24, 960, 48, 0x0e1816, 0.90))
-    this.fixed(this.add.text(16, 9, 'Bb2D', { fontFamily: 'monospace', fontSize: '24px', color: '#ffe7a8' }))
-    this.ui = this.fixed(this.add.text(102, 11, '', { fontFamily: 'monospace', fontSize: '13px', color: '#ecffd8' }))
-    this.objective = this.fixed(this.add.text(704, 8, '', { fontFamily: 'monospace', fontSize: '12px', color: '#ffd7ed', align: 'right' }))
-    this.areaLabel = this.fixed(this.add.text(16, 62, '', { fontFamily: 'monospace', fontSize: '13px', color: '#ffe7a8', backgroundColor: '#0e1816bb', padding: { x: 8, y: 5 } }))
-    this.prompt = this.fixed(this.add.text(16, 586, '', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff', backgroundColor: '#10201cdd', padding: { x: 8, y: 6 } }))
-    this.toast = this.fixed(this.add.text(480, 78, '', { fontFamily: 'monospace', fontSize: '15px', color: '#fff0c8', backgroundColor: '#21170ddd', padding: { x: 10, y: 6 }, align: 'center' }).setOrigin(0.5))
-    this.minimap = this.fixed(this.add.graphics())
+    this.hud = this.fixed(this.add.graphics()).setDepth(90)
+    this.drawHudPanels()
+
+    this.fixed(this.add.text(28, 16, 'Bb2D', {
+      fontFamily: 'Georgia, serif', fontSize: '23px', color: '#ffe7a8',
+      stroke: '#4b2f1f', strokeThickness: 3,
+    }).setDepth(95))
+    this.areaLabel = this.fixed(this.add.text(28, 44, '', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#5b3924',
+    }).setDepth(95))
+
+    this.ui = this.fixed(this.add.text(250, 21, '', {
+      fontFamily: 'monospace', fontSize: '15px', color: '#3a2a1d',
+      stroke: '#fff2c8', strokeThickness: 2,
+    }).setDepth(95))
+
+    this.objective = this.fixed(this.add.text(628, 24, '', {
+      fontFamily: 'monospace', fontSize: '13px', color: '#3a2a1d',
+      wordWrap: { width: 286 }, lineSpacing: 4,
+    }).setDepth(95))
+
+    this.prompt = this.fixed(this.add.text(28, 572, '', {
+      fontFamily: 'monospace', fontSize: '13px', color: '#fff6dc',
+      stroke: '#2a1b12', strokeThickness: 3,
+    }).setDepth(95))
+
+    this.toast = this.fixed(this.add.text(480, 120, '', {
+      fontFamily: 'monospace', fontSize: '15px', color: '#fff4c4',
+      backgroundColor: '#3c2417ee', padding: { x: 12, y: 7 }, align: 'center',
+      stroke: '#1b100a', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(110))
+
+    this.minimap = this.fixed(this.add.graphics()).setDepth(94)
     this.addTouchButtons()
     this.refreshUI()
     this.updateAreaLabel()
     this.updateMinimap()
   }
 
+  private drawHudPanels() {
+    const g = this.hud
+    if (!g) return
+    g.clear()
+    const panel = (x: number, y: number, w: number, h: number, fill = 0xf5d58b) => {
+      g.fillStyle(0x3d2618, 0.92)
+      g.fillRoundedRect(x + 4, y + 5, w, h, 10)
+      g.fillStyle(fill, 0.96)
+      g.fillRoundedRect(x, y, w, h, 10)
+      g.lineStyle(3, 0x7a4a24, 0.95)
+      g.strokeRoundedRect(x, y, w, h, 10)
+      g.lineStyle(1, 0xfff0b8, 0.65)
+      g.strokeRoundedRect(x + 5, y + 5, w - 10, h - 10, 7)
+    }
+    panel(14, 10, 190, 58, 0xe6b66f)
+    panel(224, 12, 366, 46, 0xf4d994)
+    panel(612, 12, 334, 104, 0xf3ddaa)
+    panel(804, 120, 142, 98, 0xe8c579)
+    panel(14, 556, 430, 66, 0x6f4428)
+  }
+
   private addTouchButtons() {
-    const buttons: [string, number, () => void][] = [
-      ['E', 680, () => this.interact()],
-      ['F', 742, () => this.fish()],
-      ['P', 804, () => this.openPuzzle()],
-      ['B', 848, () => this.decorate()],
-      ['H', 906, () => this.showJournal()],
+    const buttons: [string, number, string, () => void][] = [
+      ['E', 604, 'Talk', () => this.interact()],
+      ['F', 674, 'Fish', () => this.fish()],
+      ['P', 744, 'Puzzle', () => this.openPuzzle()],
+      ['B', 814, 'Build', () => this.decorate()],
+      ['H', 884, 'Journal', () => this.showJournal()],
     ]
-    buttons.forEach(([label, x, action]) => {
-      const bg = this.fixed(this.add.rectangle(x, 594, 48, 48, 0x21170d, 0.82).setStrokeStyle(2, 0xffe7a8, 0.85).setInteractive({ useHandCursor: true }))
-      const txt = this.fixed(this.add.text(x, 594, label, { fontFamily: 'monospace', fontSize: '20px', color: '#ffe7a8' }).setOrigin(0.5))
-      bg.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+    buttons.forEach(([label, x, caption, action]) => {
+      const bg = this.fixed(this.add.rectangle(x, 588, 56, 48, 0x8b5a2b, 0.96).setStrokeStyle(3, 0xffe7a8, 0.9).setInteractive({ useHandCursor: true }).setDepth(95))
+      const txt = this.fixed(this.add.text(x, 580, label, { fontFamily: 'monospace', fontSize: '18px', color: '#fff3c2', stroke: '#2a1b12', strokeThickness: 3 }).setOrigin(0.5).setDepth(96))
+      const cap = this.fixed(this.add.text(x, 604, caption, { fontFamily: 'monospace', fontSize: '9px', color: '#fff6dc' }).setOrigin(0.5).setDepth(96))
+      const wire = (obj: Phaser.GameObjects.GameObject) => obj.setInteractive({ useHandCursor: true }).on('pointerdown', (pointer: Phaser.Input.Pointer) => {
         pointer.event.stopPropagation()
         this.moveTarget = undefined
         action()
       })
-      txt.setInteractive({ useHandCursor: true }).on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-        pointer.event.stopPropagation()
-        this.moveTarget = undefined
-        action()
-      })
+      wire(bg); wire(txt); wire(cap)
     })
   }
 
@@ -883,7 +927,7 @@ class Bb2DScene extends Phaser.Scene {
 
   private updatePrompt() {
     const item = this.nearItem()
-    const base = 'WASD/arrows/tap move  E interact  F fish  P puzzle  B decorate  H journal  R reset'
+    const base = 'Move: WASD/arrows/tap   E talk/use   F fish   P puzzle   B build   H journal   R reset'
     this.prompt.setText(item ? `${base}\nNear: ${item.name}` : base)
   }
 
@@ -993,10 +1037,10 @@ class Bb2DScene extends Phaser.Scene {
   private updateMinimap() {
     if (!this.minimap) return
     const m = this.minimap
-    const x = 786
-    const y = 82
-    const w = 150
-    const h = 100
+    const x = 812
+    const y = 126
+    const w = 132
+    const h = 88
     const sx = w / WORLD_W
     const sy = h / WORLD_H
     m.clear()
@@ -1029,8 +1073,9 @@ class Bb2DScene extends Phaser.Scene {
 
   private refreshUI() {
     const ch = this.currentChapter()
-    this.ui.setText(`Ch ${ch.n + 1}: ${ch.title.replace(/^Chapter \d+: /, '').replace(/^Finale: /, '')}  |  Wood ${this.total.wood}/${GOAL.wood} Herb ${this.total.herbs}/${GOAL.herbs} Fish ${this.total.fish}/${GOAL.fish} Bloom ${this.total.blooms}/${GOAL.blooms}`)
-    this.objective.setText(`${ch.objective}\nH: journal   ♡ ${this.inv.hearts}/${GOAL.hearts}  Decor ${this.decorPlaced}/${GOAL.decorPlaced}  Mem ${this.inv.memories}/${GOAL.memories}`)
+    this.ui.setText(`🌲 ${this.total.wood}/${GOAL.wood}   🌿 ${this.total.herbs}/${GOAL.herbs}   🐟 ${this.total.fish}/${GOAL.fish}   🌸 ${this.total.blooms}/${GOAL.blooms}\n♡ ${this.inv.hearts}/${GOAL.hearts}   🏠 ${this.decorPlaced}/${GOAL.decorPlaced}   ✦ ${this.inv.memories}/${GOAL.memories}`)
+    const title = ch.title.replace(/^Chapter \d+: /, '').replace(/^Finale: /, '')
+    this.objective.setText(`${title}\n${ch.objective}`)
   }
 
   private say(text: string) {
@@ -1120,6 +1165,13 @@ const config: Phaser.Types.Core.GameConfig = {
   parent: 'app',
   width: VIEW_W,
   height: VIEW_H,
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    parent: 'app',
+    width: VIEW_W,
+    height: VIEW_H,
+  },
   pixelArt: true,
   backgroundColor: '#142820',
   scene: Bb2DScene,
