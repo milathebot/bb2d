@@ -3,7 +3,9 @@
 All runtime PNGs are copied, cropped, or composed from the user-provided Super_Retro_Collection asset pack. No SVG-generated gameplay/world assets are used in the shipped `public/gif` folder.
 
 - `bench.png`: Prefabs/Crates/Sprites/crate_08.png
+- `cat-mila-sheet.png`: Characters/Animals/cat3_16x20.png
 - `cat-mila.png`: Characters/Animals/cat3_16x20.png crop (16, 0, 32, 20)
+- `cat-pengu-sheet.png`: Characters/Animals/cat1_16x20.png
 - `cat-pengu.png`: Characters/Animals/cat1_16x20.png crop (16, 0, 32, 20)
 - `crop0.png`: Prefabs/Crops/Sprites/crop_01.png crop (0, 0, 18, 28)
 - `crop1.png`: Prefabs/Crops/Sprites/crop_01.png crop (18, 0, 36, 28)
@@ -34,7 +36,23 @@ All runtime PNGs are copied, cropped, or composed from the user-provided Super_R
 - `map-ground.png`: hand-painted composition from pack tilemap/autotile assets only
 - `memory-sparkle.png`: Animations/Water/waterfall_effect_01_16x32.png
 - `memory.png`: Prefabs/Books/Sprites/book_06.png
+- `noot-idle-down.png`: Hero/hero/color_1/breath_idle/hero_breath_idle_DOWN.png
+- `noot-idle-left.png`: Hero/hero/color_1/breath_idle/hero_breath_idle_LEFT.png
+- `noot-idle-right.png`: Hero/hero/color_1/breath_idle/hero_breath_idle_RIGHT.png
+- `noot-idle-up.png`: Hero/hero/color_1/breath_idle/hero_breath_idle_UP.png
+- `noot-walk-down.png`: Hero/hero/color_1/walk/hero_walk_DOWN.png
+- `noot-walk-left.png`: Hero/hero/color_1/walk/hero_walk_LEFT.png
+- `noot-walk-right.png`: Hero/hero/color_1/walk/hero_walk_RIGHT.png
+- `noot-walk-up.png`: Hero/hero/color_1/walk/hero_walk_UP.png
 - `noot.png`: Hero/hero/color_1/idle/hero_idle_DOWN.png
+- `player-idle-down.png`: Hero/hero/color_4/breath_idle/hero_breath_idle_DOWN.png
+- `player-idle-left.png`: Hero/hero/color_4/breath_idle/hero_breath_idle_LEFT.png
+- `player-idle-right.png`: Hero/hero/color_4/breath_idle/hero_breath_idle_RIGHT.png
+- `player-idle-up.png`: Hero/hero/color_4/breath_idle/hero_breath_idle_UP.png
+- `player-walk-down.png`: Hero/hero/color_4/walk/hero_walk_DOWN.png
+- `player-walk-left.png`: Hero/hero/color_4/walk/hero_walk_LEFT.png
+- `player-walk-right.png`: Hero/hero/color_4/walk/hero_walk_RIGHT.png
+- `player-walk-up.png`: Hero/hero/color_4/walk/hero_walk_UP.png
 - `player.png`: Hero/hero/color_4/idle/hero_idle_DOWN.png
 - `pond-base.png`: composed only from pack water/shore/wood/rock/plant assets
 - `pond-detail.png`: Prefabs/Rocks/Sprites/rock_25.png

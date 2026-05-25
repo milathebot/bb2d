@@ -111,7 +111,7 @@ class AudioKit {
 
 class Bb2DScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container
-  private playerSprite!: Phaser.GameObjects.Image
+  private playerSprite!: Phaser.GameObjects.Sprite
   private facing: 'down' | 'up' | 'left' | 'right' = 'down'
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys
   private keys!: Record<string, Phaser.Input.Keyboard.Key>
@@ -153,6 +153,14 @@ class Bb2DScene extends Phaser.Scene {
     ].forEach(name => this.load.image(`cozy-${name}`, `gif/${name}.png`))
     this.load.image('cozy-map-ground', 'gif/map-ground.png')
     this.load.image('cozy-pond-base', 'gif/pond-base.png')
+    ;['down','up','left','right'].forEach(dir => {
+      this.load.spritesheet(`cozy-player-walk-${dir}`, `gif/player-walk-${dir}.png`, { frameWidth: 32, frameHeight: 32 })
+      this.load.spritesheet(`cozy-player-idle-${dir}`, `gif/player-idle-${dir}.png`, { frameWidth: 32, frameHeight: 32 })
+      this.load.spritesheet(`cozy-noot-walk-${dir}`, `gif/noot-walk-${dir}.png`, { frameWidth: 32, frameHeight: 32 })
+      this.load.spritesheet(`cozy-noot-idle-${dir}`, `gif/noot-idle-${dir}.png`, { frameWidth: 32, frameHeight: 32 })
+    })
+    this.load.spritesheet('cozy-cat-pengu-sheet', 'gif/cat-pengu-sheet.png', { frameWidth: 16, frameHeight: 20 })
+    this.load.spritesheet('cozy-cat-mila-sheet', 'gif/cat-mila-sheet.png', { frameWidth: 16, frameHeight: 20 })
   }
 
   create() {
@@ -164,6 +172,7 @@ class Bb2DScene extends Phaser.Scene {
 
     this.drawWorld()
     this.addInteractiveItems()
+    this.createCharacterAnimations()
     this.addCharacters()
     this.loadState()
     this.addUI()
@@ -201,10 +210,9 @@ class Bb2DScene extends Phaser.Scene {
     if (dx || dy) {
       if (Math.abs(dx) > Math.abs(dy)) this.facing = dx > 0 ? 'right' : 'left'
       else this.facing = dy > 0 ? 'down' : 'up'
-      this.playerSprite.setFlipX(this.facing === 'left')
-      this.playerSprite.y = Math.sin(this.time.now / 95) * 2
+      this.playCharacterAnim(this.playerSprite, `player-walk-${this.facing}`)
     } else {
-      this.playerSprite.y = 0
+      this.playCharacterAnim(this.playerSprite, `player-idle-${this.facing}`)
     }
 
     const nextX = Phaser.Math.Clamp(this.player.x + dx, 32, WORLD_W - 32)
@@ -246,6 +254,41 @@ class Bb2DScene extends Phaser.Scene {
 
   private asset(name: string, x: number, y: number, scale = 1) {
     return this.add.image(x, y, `cozy-${name}`).setScale(scale)
+  }
+
+  private createCharacterAnimations() {
+    const dirs: ('down' | 'up' | 'left' | 'right')[] = ['down', 'up', 'left', 'right']
+    dirs.forEach(dir => {
+      this.ensureAnim(`player-walk-${dir}`, `cozy-player-walk-${dir}`, 0, 3, 8, -1)
+      this.ensureAnim(`player-idle-${dir}`, `cozy-player-idle-${dir}`, 0, 4, 5, -1)
+      this.ensureAnim(`noot-walk-${dir}`, `cozy-noot-walk-${dir}`, 0, 3, 8, -1)
+      this.ensureAnim(`noot-idle-${dir}`, `cozy-noot-idle-${dir}`, 0, 4, 5, -1)
+    })
+    ;['pengu', 'mila'].forEach((name, i) => {
+      const texture = i === 0 ? 'cozy-cat-pengu-sheet' : 'cozy-cat-mila-sheet'
+      this.ensureAnim(`${name}-walk-down`, texture, 0, 2, 6, -1)
+      this.ensureAnim(`${name}-walk-left`, texture, 3, 5, 6, -1)
+      this.ensureAnim(`${name}-walk-right`, texture, 6, 8, 6, -1)
+      this.ensureAnim(`${name}-walk-up`, texture, 9, 11, 6, -1)
+      this.ensureAnim(`${name}-idle-down`, texture, 1, 1, 1, 0)
+      this.ensureAnim(`${name}-idle-left`, texture, 4, 4, 1, 0)
+      this.ensureAnim(`${name}-idle-right`, texture, 7, 7, 1, 0)
+      this.ensureAnim(`${name}-idle-up`, texture, 10, 10, 1, 0)
+    })
+  }
+
+  private ensureAnim(key: string, texture: string, start: number, end: number, frameRate: number, repeat: number) {
+    if (this.anims.exists(key)) return
+    this.anims.create({
+      key,
+      frames: this.anims.generateFrameNumbers(texture, { start, end }),
+      frameRate,
+      repeat,
+    })
+  }
+
+  private playCharacterAnim(sprite: Phaser.GameObjects.Sprite, key: string) {
+    if (sprite.anims.currentAnim?.key !== key) sprite.play(key, true)
   }
 
 
@@ -1094,7 +1137,8 @@ class Bb2DScene extends Phaser.Scene {
   private person(x: number, y: number, _skin: number, _hairColor: number, _shirt: number, badge: string) {
     const p = this.add.container(x, y).setDepth(10)
     p.add(this.add.ellipse(0, 19, 30, 10, 0x000000, 0.22))
-    const sprite = this.add.image(0, 0, badge === 'B' ? 'cozy-player' : 'cozy-noot').setScale(1.65)
+    const sprite = this.add.sprite(0, 0, badge === 'B' ? 'cozy-player-idle-down' : 'cozy-noot-idle-down', 0).setScale(1.65)
+    sprite.play(badge === 'B' ? 'player-idle-down' : 'noot-idle-down')
     p.add(sprite)
     if (badge === 'B') this.playerSprite = sprite
     if (badge === 'Noot') {
@@ -1108,7 +1152,12 @@ class Bb2DScene extends Phaser.Scene {
   private cat(x: number, y: number, _color: number, name: string) {
     const c = this.add.container(x, y).setDepth(9)
     c.add(this.add.ellipse(2, 18, 32, 9, 0x000000, 0.18))
-    const pet = this.add.image(0, 0, name === 'Pengu' ? 'cozy-cat-pengu' : 'cozy-cat-mila').setScale(1.45)
+    const base = name === 'Pengu' ? 'pengu' : 'mila'
+    const pet = this.add.sprite(0, 0, name === 'Pengu' ? 'cozy-cat-pengu-sheet' : 'cozy-cat-mila-sheet', 1).setScale(1.45)
+    pet.play(`${base}-idle-down`)
+    c.setData('petSprite', pet)
+    c.setData('petBase', base)
+    c.setData('petFacing', 'down')
     c.add(pet)
     c.add(this.add.text(-16, 22, name, { fontFamily: 'monospace', fontSize: '10px', color: '#fff', stroke: '#1b1112', strokeThickness: 3 }))
     return c
@@ -1117,8 +1166,21 @@ class Bb2DScene extends Phaser.Scene {
   private followCats(delta: number) {
     const follow = (cat: Phaser.GameObjects.Container | undefined, dist: number) => {
       if (!cat?.visible) return
+      const oldX = cat.x
+      const oldY = cat.y
       cat.x += (this.player.x - dist - cat.x) * 0.0025 * delta
       cat.y += (this.player.y + 34 - cat.y) * 0.0025 * delta
+      const pet = cat.getData('petSprite') as Phaser.GameObjects.Sprite | undefined
+      const base = cat.getData('petBase') as string | undefined
+      if (!pet || !base) return
+      const movedX = cat.x - oldX
+      const movedY = cat.y - oldY
+      const moving = Math.abs(movedX) + Math.abs(movedY) > 0.08
+      const facing = moving
+        ? (Math.abs(movedX) > Math.abs(movedY) ? (movedX > 0 ? 'right' : 'left') : (movedY > 0 ? 'down' : 'up'))
+        : (cat.getData('petFacing') as string || 'down')
+      cat.setData('petFacing', facing)
+      this.playCharacterAnim(pet, `${base}-${moving ? 'walk' : 'idle'}-${facing}`)
     }
     follow(this.pengu, 50)
     follow(this.mila, 88)

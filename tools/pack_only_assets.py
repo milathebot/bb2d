@@ -40,6 +40,13 @@ def save_tile(img: Image.Image, name: str, src: str):
 # Pack-native sprites only. No custom SVG-derived or hand-pixel object art.
 copy('Hero/hero/color_4/idle/hero_idle_DOWN.png', 'player.png')
 copy('Hero/hero/color_1/idle/hero_idle_DOWN.png', 'noot.png')
+for direction in ['DOWN', 'UP', 'LEFT', 'RIGHT']:
+    copy(f'Hero/hero/color_4/walk/hero_walk_{direction}.png', f'player-walk-{direction.lower()}.png')
+    copy(f'Hero/hero/color_4/breath_idle/hero_breath_idle_{direction}.png', f'player-idle-{direction.lower()}.png')
+    copy(f'Hero/hero/color_1/walk/hero_walk_{direction}.png', f'noot-walk-{direction.lower()}.png')
+    copy(f'Hero/hero/color_1/breath_idle/hero_breath_idle_{direction}.png', f'noot-idle-{direction.lower()}.png')
+copy('Characters/Animals/cat1_16x20.png', 'cat-pengu-sheet.png')
+copy('Characters/Animals/cat3_16x20.png', 'cat-mila-sheet.png')
 crop('Characters/Animals/cat1_16x20.png', (16, 0, 32, 20), 'cat-pengu.png')
 crop('Characters/Animals/cat3_16x20.png', (16, 0, 32, 20), 'cat-mila.png')
 copy('Prefabs/Trees/Sprites/tree_02.png', 'tree.png')
