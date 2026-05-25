@@ -478,24 +478,24 @@ class Bb2DScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '11px', color: '#dfffe1', stroke: '#111a14', strokeThickness: 2,
     }).setDepth(95))
 
-    this.ui = this.fixed(this.add.text(132, 18, '', {
-      fontFamily: 'monospace', fontSize: '12px', color: '#fff6dc',
-      stroke: '#111a14', strokeThickness: 2,
-    }).setDepth(95))
-
-    this.objective = this.fixed(this.add.text(690, 18, '', {
-      fontFamily: 'monospace', fontSize: '12px', color: '#fff6dc',
-      stroke: '#111a14', strokeThickness: 2, wordWrap: { width: 238 }, lineSpacing: 3,
-    }).setDepth(95))
-
-    this.prompt = this.fixed(this.add.text(22, 596, '', {
+    this.ui = this.fixed(this.add.text(132, 16, '', {
       fontFamily: 'monospace', fontSize: '11px', color: '#fff6dc',
-      stroke: '#2a1b12', strokeThickness: 3,
+      stroke: '#111a14', strokeThickness: 2, wordWrap: { width: 500 }, lineSpacing: 4,
     }).setDepth(95))
 
-    this.toast = this.fixed(this.add.text(480, 120, '', {
-      fontFamily: 'monospace', fontSize: '15px', color: '#fff4c4',
-      backgroundColor: '#3c2417ee', padding: { x: 12, y: 7 }, align: 'center',
+    this.objective = this.fixed(this.add.text(658, 16, '', {
+      fontFamily: 'monospace', fontSize: '11px', color: '#fff6dc',
+      stroke: '#111a14', strokeThickness: 2, wordWrap: { width: 282 }, lineSpacing: 2,
+    }).setDepth(95))
+
+    this.prompt = this.fixed(this.add.text(24, 586, '', {
+      fontFamily: 'monospace', fontSize: '10px', color: '#fff6dc',
+      stroke: '#2a1b12', strokeThickness: 3, wordWrap: { width: 890 }, lineSpacing: 2,
+    }).setDepth(95))
+
+    this.toast = this.fixed(this.add.text(480, 118, '', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#fff4c4',
+      backgroundColor: '#3c2417ee', padding: { x: 14, y: 8 }, align: 'center', wordWrap: { width: 720 },
       stroke: '#1b100a', strokeThickness: 2,
     }).setOrigin(0.5).setDepth(110))
 
@@ -510,13 +510,19 @@ class Bb2DScene extends Phaser.Scene {
     const g = this.hud
     if (!g) return
     g.clear()
-    // Minimal RPG overlay: status text sits on glass, not a pile of panels.
-    g.fillStyle(0x07100d, 0.34)
-    g.fillRoundedRect(12, 10, 560, 46, 9)
+    // Minimal RPG overlay: every text block has measured padding inside its glass panel.
+    g.fillStyle(0x07100d, 0.44)
+    g.fillRoundedRect(12, 10, 620, 54, 9)
+    g.lineStyle(1, 0xffe7a8, 0.20)
+    g.strokeRoundedRect(12, 10, 620, 54, 9)
+    g.fillStyle(0x07100d, 0.48)
+    g.fillRoundedRect(648, 10, 300, 72, 9)
+    g.lineStyle(1, 0xffe7a8, 0.20)
+    g.strokeRoundedRect(648, 10, 300, 72, 9)
     g.fillStyle(0x07100d, 0.38)
-    g.fillRoundedRect(676, 10, 270, 58, 9)
-    g.fillStyle(0x07100d, 0.30)
-    g.fillRoundedRect(14, 590, 380, 32, 8)
+    g.fillRoundedRect(14, 580, 932, 46, 8)
+    g.lineStyle(1, 0xffe7a8, 0.16)
+    g.strokeRoundedRect(14, 580, 932, 46, 8)
   }
 
   private addTouchButtons() {
@@ -546,6 +552,8 @@ class Bb2DScene extends Phaser.Scene {
     this.overlay = this.add.container(0, 0).setName('intro').setScrollFactor(0).setDepth(120)
     this.overlay.add(this.add.rectangle(480, 320, 960, 640, 0x08090d, 0.92).setScrollFactor(0))
     const card = this.add.container(480, 320).setScrollFactor(0)
+    const panel = this.add.graphics().fillStyle(0x10161a, 0.78).fillRoundedRect(-400, -260, 800, 520, 18).lineStyle(2, 0xffe7a8, 0.28).strokeRoundedRect(-400, -260, 800, 520, 18)
+    card.add(panel)
     card.add(this.add.image(-270, 145, 'cozy-cat-pengu').setScale(3.2).setAngle(-6))
     card.add(this.add.image(270, 145, 'cozy-cat-mila').setScale(3.2).setAngle(6))
     card.add(this.add.image(-180, -122, 'cozy-memory-sparkle').setScale(1.15))
@@ -557,9 +565,9 @@ class Bb2DScene extends Phaser.Scene {
     card.add(this.add.text(0, -134, 'A tiny cozy adventure for BB.', { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5))
     card.add(this.add.text(0, -60,
       'Have a wonderful adventure BB <3. Wander the paths, collect memories,\ngather resources, solve the shrine puzzle, grow flowers,\ndecorate home, unlock Pengu and Mila,\nand talk to Noot when the house feels ready.',
-      { fontFamily: 'monospace', fontSize: '16px', color: '#dfffe1', align: 'center', lineSpacing: 8 }
+      { fontFamily: 'monospace', fontSize: '15px', color: '#dfffe1', align: 'center', lineSpacing: 7, wordWrap: { width: 720 } }
     ).setOrigin(0.5))
-    card.add(this.add.text(0, 205, 'Move: WASD/arrows or tap   E: interact   F: fish   P: puzzle   B: decorate', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd7ed' }).setOrigin(0.5))
+    card.add(this.add.text(0, 205, 'Move: WASD/arrows or tap   E: interact   F: fish   P: puzzle   B: decorate', { fontFamily: 'monospace', fontSize: '12px', color: '#ffd7ed', align: 'center', wordWrap: { width: 700 } }).setOrigin(0.5))
     const start = this.add.text(0, 248, this.loadedFromSave ? 'Press Enter or Space to continue' : 'Press Enter or Space to start', { fontFamily: 'monospace', fontSize: '18px', color: '#ffe7a8', backgroundColor: '#21170ddd', padding: { x: 14, y: 8 } }).setOrigin(0.5)
     card.add(start)
     this.overlay.add(card)
@@ -667,10 +675,13 @@ class Bb2DScene extends Phaser.Scene {
 
   private showMemoryCard(title: string, body: string) {
     const card = this.add.container(0, 0).setDepth(110).setScrollFactor(0)
-    card.add(this.add.rectangle(480, 320, 590, 205, 0x120e18, 0.95).setStrokeStyle(3, 0xffc6e9).setScrollFactor(0))
-    card.add(this.add.text(480, 266, title, { fontFamily: 'monospace', fontSize: '24px', color: '#ffe7a8' }).setOrigin(0.5).setScrollFactor(0))
-    card.add(this.add.text(480, 326, body, { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff', align: 'center', wordWrap: { width: 520 } }).setOrigin(0.5).setScrollFactor(0))
-    card.add(this.add.text(480, 392, 'A memory goes into the house.', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
+    const bg = this.add.graphics().setScrollFactor(0)
+    bg.fillStyle(0x120e18, 0.95).fillRoundedRect(185, 214, 590, 222, 14)
+    bg.lineStyle(3, 0xffc6e9, 0.72).strokeRoundedRect(185, 214, 590, 222, 14)
+    card.add(bg)
+    card.add(this.add.text(480, 260, title, { fontFamily: 'monospace', fontSize: '22px', color: '#ffe7a8', align: 'center', wordWrap: { width: 520 } }).setOrigin(0.5).setScrollFactor(0))
+    card.add(this.add.text(480, 324, body, { fontFamily: 'monospace', fontSize: '15px', color: '#ffffff', align: 'center', wordWrap: { width: 520 }, lineSpacing: 4 }).setOrigin(0.5).setScrollFactor(0))
+    card.add(this.add.text(480, 404, 'A memory goes into the house.', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
     this.time.delayedCall(2300, () => card.destroy(true))
   }
 
@@ -702,8 +713,12 @@ class Bb2DScene extends Phaser.Scene {
     this.inPuzzle = true
     const overlay = this.add.container(0, 0).setDepth(120).setScrollFactor(0).setName('puzzle')
     overlay.add(this.add.rectangle(480, 320, 960, 640, 0x07080d, 0.88).setScrollFactor(0))
-    overlay.add(this.add.text(480, 72, 'Match-3 Memories', { fontFamily: 'monospace', fontSize: '30px', color: '#ffe7a8' }).setOrigin(0.5).setScrollFactor(0))
-    overlay.add(this.add.text(480, 112, 'Click adjacent tiles. Match W wood, F fish, B bloom, D dinner, M music, C cats. ESC closes.', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0))
+    const panel = this.add.graphics().setScrollFactor(0)
+    panel.fillStyle(0x10161a, 0.84).fillRoundedRect(176, 46, 608, 524, 16)
+    panel.lineStyle(2, 0xffe7a8, 0.32).strokeRoundedRect(176, 46, 608, 524, 16)
+    overlay.add(panel)
+    overlay.add(this.add.text(480, 74, 'Match-3 Memories', { fontFamily: 'monospace', fontSize: '28px', color: '#ffe7a8' }).setOrigin(0.5).setScrollFactor(0))
+    overlay.add(this.add.text(480, 114, 'Click adjacent tiles. Match W wood, F fish, B bloom, D dinner, M music, C cats. ESC closes.', { fontFamily: 'monospace', fontSize: '13px', color: '#ffffff', align: 'center', wordWrap: { width: 560 } }).setOrigin(0.5).setScrollFactor(0))
 
     const size = 6
     const icons = ['M', 'W', 'F', 'B', 'D', 'C']
@@ -873,7 +888,7 @@ class Bb2DScene extends Phaser.Scene {
         t.on('pointerdown', click)
       }
     }
-    overlay.add(this.add.text(480, 522, 'Tip: any 3+ in a row or column counts. The board refills with new moves now.', { fontFamily: 'monospace', fontSize: '14px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
+    overlay.add(this.add.text(480, 522, 'Tip: any 3+ in a row or column counts. The board refills with new moves now.', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd7ed', align: 'center', wordWrap: { width: 560 } }).setOrigin(0.5).setScrollFactor(0))
   }
 
   private closePuzzle() {
@@ -905,7 +920,11 @@ class Bb2DScene extends Phaser.Scene {
     this.endingShown = true
     const end = this.add.container(0, 0).setDepth(130).setScrollFactor(0)
     end.add(this.add.rectangle(480, 320, 960, 640, 0x08090d, 0.94).setScrollFactor(0))
-    end.add(this.add.text(480, 66, 'Home Complete', { fontFamily: 'monospace', fontSize: '42px', color: '#ffe7a8', stroke: '#21131a', strokeThickness: 5 }).setOrigin(0.5).setScrollFactor(0))
+    const panel = this.add.graphics().setScrollFactor(0)
+    panel.fillStyle(0x10161a, 0.72).fillRoundedRect(100, 36, 760, 560, 18)
+    panel.lineStyle(2, 0xffe7a8, 0.24).strokeRoundedRect(100, 36, 760, 560, 18)
+    end.add(panel)
+    end.add(this.add.text(480, 66, 'Home Complete', { fontFamily: 'monospace', fontSize: '40px', color: '#ffe7a8', stroke: '#21131a', strokeThickness: 5 }).setOrigin(0.5).setScrollFactor(0))
     const photo = this.add.container(480, 214).setScrollFactor(0)
     photo.add(this.add.image(0, 0, 'cozy-ending-frame').setScale(1))
     photo.add(this.add.image(-80, -12, 'cozy-player').setScale(2.5))
@@ -916,7 +935,7 @@ class Bb2DScene extends Phaser.Scene {
     end.add(photo)
     end.add(this.add.text(480, 380,
       'From university hallways to rave lights,\nfrom Dubai days to Canada home,\nfrom wellness walks to kitchen dates,\nfrom Pengu and Mila judging every choice...\n\nWe keep building the soft little world.\nOne memory, one meal, one cat hair, one home at a time.\n\nHappy everything, B. <3',
-      { fontFamily: 'monospace', fontSize: '17px', color: '#ffffff', align: 'center', lineSpacing: 7, wordWrap: { width: 760 } }
+      { fontFamily: 'monospace', fontSize: '15px', color: '#ffffff', align: 'center', lineSpacing: 6, wordWrap: { width: 700 } }
     ).setOrigin(0.5).setScrollFactor(0))
     end.add(this.add.text(480, 590, 'Press R to play again', { fontFamily: 'monospace', fontSize: '15px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
     for (let i = 0; i < 34; i++) {
@@ -947,7 +966,7 @@ class Bb2DScene extends Phaser.Scene {
 
   private updatePrompt() {
     const item = this.nearItem()
-    const base = 'WASD/arrows/tap  E use  F fish  P puzzle  B build  H journal'
+    const base = 'Move WASD/arrows/tap  |  E use  F fish  P puzzle  B build  H journal'
     this.prompt.setText(item ? `${base}  |  Near: ${item.name}` : base)
   }
 
@@ -995,11 +1014,14 @@ class Bb2DScene extends Phaser.Scene {
     const ch = this.currentChapter()
     const missing = this.missingGoals()
     const journal = this.add.container(0, 0).setName('journal').setScrollFactor(0).setDepth(125)
-    journal.add(this.add.rectangle(480, 320, 720, 430, 0x08090d, 0.94).setStrokeStyle(3, 0xffe7a8).setScrollFactor(0))
-    journal.add(this.add.text(480, 150, ch.title, { fontFamily: 'monospace', fontSize: '26px', color: '#ffe7a8' }).setOrigin(0.5).setScrollFactor(0))
-    journal.add(this.add.text(480, 212, ch.objective, { fontFamily: 'monospace', fontSize: '17px', color: '#ffffff', align: 'center', wordWrap: { width: 610 } }).setOrigin(0.5).setScrollFactor(0))
-    journal.add(this.add.text(480, 292, `Full ending needs: ${missing.length ? missing.slice(0, 6).join(', ') : 'nothing. Go talk to Noot.'}`, { fontFamily: 'monospace', fontSize: '14px', color: '#dfffe1', align: 'center', wordWrap: { width: 620 } }).setOrigin(0.5).setScrollFactor(0))
-    journal.add(this.add.text(480, 394, 'Press H to close. Press R for a new run.', { fontFamily: 'monospace', fontSize: '14px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
+    const bg = this.add.graphics().setScrollFactor(0)
+    bg.fillStyle(0x08090d, 0.94).fillRoundedRect(120, 100, 720, 440, 16)
+    bg.lineStyle(3, 0xffe7a8, 0.72).strokeRoundedRect(120, 100, 720, 440, 16)
+    journal.add(bg)
+    journal.add(this.add.text(480, 146, ch.title, { fontFamily: 'monospace', fontSize: '23px', color: '#ffe7a8', align: 'center', wordWrap: { width: 650 } }).setOrigin(0.5).setScrollFactor(0))
+    journal.add(this.add.text(480, 216, ch.objective, { fontFamily: 'monospace', fontSize: '15px', color: '#ffffff', align: 'center', wordWrap: { width: 620 }, lineSpacing: 4 }).setOrigin(0.5).setScrollFactor(0))
+    journal.add(this.add.text(480, 306, `Full ending needs: ${missing.length ? missing.slice(0, 6).join(', ') : 'nothing. Go talk to Noot.'}`, { fontFamily: 'monospace', fontSize: '13px', color: '#dfffe1', align: 'center', wordWrap: { width: 620 }, lineSpacing: 4 }).setOrigin(0.5).setScrollFactor(0))
+    journal.add(this.add.text(480, 478, 'Press H to close. Press R for a new run.', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
     this.overlay = journal
   }
 
