@@ -1,0 +1,61 @@
+# Bb2D shipped asset sources
+
+All runtime PNGs are copied, cropped, or composed from the user-provided Super_Retro_Collection asset pack. No SVG-generated gameplay/world assets are used in the shipped `public/gif` folder.
+
+- `bench.png`: Prefabs/Crates/Sprites/crate_08.png
+- `cat-mila.png`: Characters/Animals/cat3_16x20.png crop (16, 0, 32, 20)
+- `cat-pengu.png`: Characters/Animals/cat1_16x20.png crop (16, 0, 32, 20)
+- `crop0.png`: Prefabs/Crops/Sprites/crop_01.png crop (0, 0, 18, 28)
+- `crop1.png`: Prefabs/Crops/Sprites/crop_01.png crop (18, 0, 36, 28)
+- `crop2.png`: Prefabs/Crops/Sprites/crop_01.png crop (36, 0, 54, 28)
+- `crop3.png`: Prefabs/Crops/Sprites/crop_01.png crop (54, 0, 72, 28)
+- `decor.png`: Prefabs/Potted plants/Sprites/potted_plant_05.png
+- `dj-booth.png`: Prefabs/Fires/Sprites/fire_camp_02.png
+- `dock.png`: composed from house_autotile wood/deck pack tiles
+- `ending-frame.png`: Prefabs/Books/Sprites/book_07.png
+- `farm-crop0.png`: Animations/Farm/farm_plant_01_18x32.png crop (0, 0, 18, 32)
+- `farm-crop1.png`: Animations/Farm/farm_plant_01_18x32.png crop (18, 0, 36, 32)
+- `farm-crop2.png`: Animations/Farm/farm_plant_01_18x32.png crop (36, 0, 54, 32)
+- `farm-crop3.png`: Animations/Farm/farm_plant_01_18x32.png crop (54, 0, 72, 32)
+- `farm-crop4.png`: Animations/Farm/farm_plant_01_18x32.png crop (72, 0, 90, 32)
+- `farm-crop5.png`: Animations/Farm/farm_plant_01_18x32.png crop (90, 0, 108, 32)
+- `farm-soil0.png`: tilemap soil composed from pack autotiles
+- `farm-soil1.png`: tilemap soil composed from pack autotiles
+- `farm-tool.png`: Characters/Farm/farm_hoe_01_32x32.png crop (32, 32, 64, 64)
+- `fish.png`: Animations/Water/water_02_16x16.png crop (0, 0, 16, 16)
+- `forest-detail.png`: Prefabs/Trees/Sprites/tree_31.png
+- `garden-bed.png`: Prefabs/Potted plants/Sprites/potted_plant_08.png
+- `heart-decor.png`: Prefabs/Potted plants/Sprites/potted_plant_07.png
+- `herb.png`: Prefabs/Potted plants/Sprites/potted_plant_02.png
+- `home-detail.png`: Prefabs/Houses/Sprites/house_26.png
+- `house.png`: Prefabs/Houses/Sprites/house_25.png
+- `kitchen.png`: Prefabs/Barrels/Sprites/barrel_02.png
+- `lamp.png`: Prefabs/Lamps/Sprites/lamp_04.png
+- `map-ground.png`: hand-painted composition from pack tilemap/autotile assets only
+- `memory-sparkle.png`: Animations/Water/waterfall_effect_01_16x32.png
+- `memory.png`: Prefabs/Books/Sprites/book_06.png
+- `noot.png`: Hero/hero/color_1/idle/hero_idle_DOWN.png
+- `player.png`: Hero/hero/color_4/idle/hero_idle_DOWN.png
+- `pond-base.png`: composed only from pack water/shore/wood/rock/plant assets
+- `pond-detail.png`: Prefabs/Rocks/Sprites/rock_25.png
+- `rave-light-blue.png`: Prefabs/Fires/Sprites/Fire_02.png
+- `rave-light-pink.png`: Prefabs/Fires/Sprites/Fire_01.png
+- `shrine.png`: Prefabs/Statues/Sprites/statue_01.png
+- `sign.png`: Prefabs/Barrels/Sprites/barrel_01.png
+- `skyline.png`: Prefabs/Columns/Sprites/column_04.png
+- `terrain-dirt-round.png`: pack tile path_b
+- `terrain-dirt.png`: pack tile path_a
+- `terrain-grass-detail.png`: pack tile leaf
+- `terrain-grass.png`: pack tile grass_b
+- `terrain-path.png`: pack tile path_a
+- `tile-dirt.png`: pack tile path_a
+- `tile-forest.png`: pack tile forest
+- `tile-grass.png`: pack tile grass_a
+- `tile-water.png`: pack tile water_a
+- `tile-wood.png`: pack tile wood
+- `tree.png`: Prefabs/Trees/Sprites/tree_02.png
+- `tree2.png`: Prefabs/Trees/Sprites/tree_11.png
+- `university.png`: Prefabs/Houses/Sprites/house_20.png
+- `water-ripple.png`: Animations/Water/water_01_16x16.png
+- `water-sheet.png`: Animations/Water/water_03_48x48.png
+- `waterfall.png`: Animations/Water/waterfall_16x16.png
