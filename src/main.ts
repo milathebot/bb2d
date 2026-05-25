@@ -309,16 +309,12 @@ class Bb2DScene extends Phaser.Scene {
     this.add.text(500, 190, 'quiet trail', { fontFamily: 'monospace', fontSize: '13px', color: '#dfffe1', stroke: '#122019', strokeThickness: 3 }).setDepth(5)
 
     this.zone(1640, 110, 670, 460, 0x1f6880, 'Quiet Pond', 1760, 154)
-    this.asset('pond-detail', 1715, 430, 1.15).setDepth(3)
-    this.asset('pond-detail', 2255, 300, 1.05).setDepth(3).setFlipX(true)
     this.asset('dock', 1988, 466, 1.04).setDepth(4)
     this.add.text(1988, 535, 'fish from the dock', { fontFamily: 'monospace', fontSize: '12px', color: '#fff3ba', stroke: '#2a1a1e', strokeThickness: 3 }).setOrigin(0.5).setDepth(5)
     this.blockingAsset('bench', 2180, 488, 1.25, 74, 32, 8).setDepth(4)
     this.asset('lamp', 1838, 525, 0.95).setDepth(4)
 
     this.zone(1240, 1160, 430, 340, 0x7b5935, 'Garden', 1345, 1198)
-    this.asset('garden-bed', 1492, 1308, 2.35).setDepth(2)
-    this.asset('garden-bed', 1374, 1395, 1.7).setDepth(2)
     this.blockingAsset('lamp', 1345, 1188, 1.25, 32, 34, 12).setDepth(4)
     this.blockingAsset('farm-tool', 1640, 1192, 1.25, 34, 34, 0).setDepth(4)
 
@@ -400,11 +396,10 @@ class Bb2DScene extends Phaser.Scene {
     })
 
     for (let i = 0; i < 12; i++) {
-      const x = 1375 + (i % 4) * 78
-      const y = 1245 + Math.floor(i / 4) * 66
-      this.asset(i % 2 ? 'farm-soil1' : 'farm-soil0', x, y + 12, 1.18).setDepth(2)
-      const crop = this.asset('farm-crop0', x, y, 1.45).setDepth(4)
-      this.items.push({ kind: 'crop', name: 'farm plot', zone: new Phaser.Geom.Rectangle(x - 34, y - 30, 68, 62), sprite: crop, stage: 0 })
+      const x = 1320 + (i % 4) * 78
+      const y = 1230 + Math.floor(i / 4) * 66
+      const crop = this.asset('farm-crop0', x, y - 4, 1.35).setDepth(4)
+      this.items.push({ kind: 'crop', name: 'garden plot', zone: new Phaser.Geom.Rectangle(x - 34, y - 32, 68, 64), sprite: crop, stage: 0 })
     }
 
     this.items.push({ kind: 'pond', name: 'fishing dock', zone: new Phaser.Geom.Rectangle(1870, 420, 245, 165), cooldown: 0 })
@@ -432,26 +427,26 @@ class Bb2DScene extends Phaser.Scene {
     this.hud = this.fixed(this.add.graphics()).setDepth(90)
     this.drawHudPanels()
 
-    this.fixed(this.add.text(28, 16, 'Bb2D', {
-      fontFamily: 'Georgia, serif', fontSize: '23px', color: '#ffe7a8',
+    this.fixed(this.add.text(22, 14, 'Bb2D', {
+      fontFamily: 'Georgia, serif', fontSize: '22px', color: '#ffe7a8',
       stroke: '#1a1009', strokeThickness: 3,
     }).setDepth(95))
-    this.areaLabel = this.fixed(this.add.text(28, 44, '', {
-      fontFamily: 'monospace', fontSize: '12px', color: '#dfffe1', stroke: '#111a14', strokeThickness: 2,
+    this.areaLabel = this.fixed(this.add.text(22, 42, '', {
+      fontFamily: 'monospace', fontSize: '11px', color: '#dfffe1', stroke: '#111a14', strokeThickness: 2,
     }).setDepth(95))
 
-    this.ui = this.fixed(this.add.text(250, 21, '', {
-      fontFamily: 'monospace', fontSize: '14px', color: '#fff6dc',
+    this.ui = this.fixed(this.add.text(132, 18, '', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#fff6dc',
       stroke: '#111a14', strokeThickness: 2,
     }).setDepth(95))
 
-    this.objective = this.fixed(this.add.text(628, 24, '', {
-      fontFamily: 'monospace', fontSize: '13px', color: '#fff6dc',
-      stroke: '#111a14', strokeThickness: 2, wordWrap: { width: 286 }, lineSpacing: 4,
+    this.objective = this.fixed(this.add.text(690, 18, '', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#fff6dc',
+      stroke: '#111a14', strokeThickness: 2, wordWrap: { width: 238 }, lineSpacing: 3,
     }).setDepth(95))
 
-    this.prompt = this.fixed(this.add.text(28, 572, '', {
-      fontFamily: 'monospace', fontSize: '13px', color: '#fff6dc',
+    this.prompt = this.fixed(this.add.text(22, 596, '', {
+      fontFamily: 'monospace', fontSize: '11px', color: '#fff6dc',
       stroke: '#2a1b12', strokeThickness: 3,
     }).setDepth(95))
 
@@ -472,22 +467,18 @@ class Bb2DScene extends Phaser.Scene {
     const g = this.hud
     if (!g) return
     g.clear()
-    // One quiet top ribbon plus small anchored widgets. No emoji tofu, no box farm.
-    g.fillStyle(0x101815, 0.58)
-    g.fillRoundedRect(14, 10, 576, 56, 12)
-    g.lineStyle(1, 0xffe7a8, 0.32)
-    g.strokeRoundedRect(14, 10, 576, 56, 12)
-    g.fillStyle(0x101815, 0.62)
-    g.fillRoundedRect(612, 12, 334, 84, 12)
-    g.lineStyle(1, 0xffe7a8, 0.32)
-    g.strokeRoundedRect(612, 12, 334, 84, 12)
-    g.fillStyle(0x101815, 0.50)
-    g.fillRoundedRect(804, 116, 142, 102, 10)
-    g.fillStyle(0x101815, 0.48)
-    g.fillRoundedRect(14, 560, 424, 54, 10)
+    // Minimal RPG overlay: status text sits on glass, not a pile of panels.
+    g.fillStyle(0x07100d, 0.34)
+    g.fillRoundedRect(12, 10, 560, 46, 9)
+    g.fillStyle(0x07100d, 0.38)
+    g.fillRoundedRect(676, 10, 270, 58, 9)
+    g.fillStyle(0x07100d, 0.30)
+    g.fillRoundedRect(14, 590, 380, 32, 8)
   }
 
   private addTouchButtons() {
+    const touchOnly = ('ontouchstart' in window) || navigator.maxTouchPoints > 0
+    if (!touchOnly) return
     const buttons: [string, number, string, () => void][] = [
       ['E', 604, 'Talk', () => this.interact()],
       ['F', 674, 'Fish', () => this.fish()],
@@ -496,9 +487,9 @@ class Bb2DScene extends Phaser.Scene {
       ['H', 884, 'Journal', () => this.showJournal()],
     ]
     buttons.forEach(([label, x, caption, action]) => {
-      const bg = this.fixed(this.add.circle(x, 584, 23, 0x21170d, 0.78).setStrokeStyle(2, 0xffe7a8, 0.62).setInteractive({ useHandCursor: true }).setDepth(95))
-      const txt = this.fixed(this.add.text(x, 578, label, { fontFamily: 'monospace', fontSize: '16px', color: '#fff3c2', stroke: '#111a14', strokeThickness: 3 }).setOrigin(0.5).setDepth(96))
-      const cap = this.fixed(this.add.text(x, 606, caption, { fontFamily: 'monospace', fontSize: '9px', color: '#fff6dc', stroke: '#111a14', strokeThickness: 2 }).setOrigin(0.5).setDepth(96))
+      const bg = this.fixed(this.add.circle(x, 592, 18, 0x21170d, 0.54).setStrokeStyle(1, 0xffe7a8, 0.42).setInteractive({ useHandCursor: true }).setDepth(95))
+      const txt = this.fixed(this.add.text(x, 587, label, { fontFamily: 'monospace', fontSize: '13px', color: '#fff3c2', stroke: '#111a14', strokeThickness: 2 }).setOrigin(0.5).setDepth(96))
+      const cap = this.fixed(this.add.text(x, 612, caption, { fontFamily: 'monospace', fontSize: '8px', color: '#fff6dc', stroke: '#111a14', strokeThickness: 2 }).setOrigin(0.5).setDepth(96))
       const wire = (obj: Phaser.GameObjects.GameObject) => obj.setInteractive({ useHandCursor: true }).on('pointerdown', (pointer: Phaser.Input.Pointer) => {
         pointer.event.stopPropagation()
         this.moveTarget = undefined
@@ -913,8 +904,8 @@ class Bb2DScene extends Phaser.Scene {
 
   private updatePrompt() {
     const item = this.nearItem()
-    const base = 'Move: WASD/arrows/tap   E talk/use   F fish   P puzzle   B build   H journal   R reset'
-    this.prompt.setText(item ? `${base}\nNear: ${item.name}` : base)
+    const base = 'WASD/arrows/tap  E use  F fish  P puzzle  B build  H journal'
+    this.prompt.setText(item ? `${base}  |  Near: ${item.name}` : base)
   }
 
   private updateAreaLabel() {
@@ -1023,17 +1014,17 @@ class Bb2DScene extends Phaser.Scene {
   private updateMinimap() {
     if (!this.minimap) return
     const m = this.minimap
-    const x = 812
-    const y = 126
-    const w = 132
-    const h = 88
+    const x = 828
+    const y = 86
+    const w = 116
+    const h = 78
     const sx = w / WORLD_W
     const sy = h / WORLD_H
     m.clear()
-    m.fillStyle(0x0e1816, 0.86)
-    m.fillRoundedRect(x, y, w, h, 8)
-    m.lineStyle(2, 0xffe7a8, 0.65)
-    m.strokeRoundedRect(x, y, w, h, 8)
+    m.fillStyle(0x0e1816, 0.52)
+    m.fillRoundedRect(x, y, w, h, 7)
+    m.lineStyle(1, 0xffe7a8, 0.38)
+    m.strokeRoundedRect(x, y, w, h, 7)
     const areas: [Phaser.Geom.Rectangle, number][] = [
       [new Phaser.Geom.Rectangle(70, 135, 670, 500), 0x2e8a55],
       [new Phaser.Geom.Rectangle(1640, 110, 670, 460), 0x47b9d6],
