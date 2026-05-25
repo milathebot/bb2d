@@ -276,20 +276,8 @@ class Bb2DScene extends Phaser.Scene {
     this.sign(lx, ly, label)
   }
 
-  private path(points: [number, number][]) {
-    const stamp = (x: number, y: number) => {
-      for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
-        if (Math.abs(ox) + Math.abs(oy) > 2) continue
-        this.add.image(Math.round(x / 32) * 32 + ox * 32, Math.round(y / 32) * 32 + oy * 32, 'cozy-terrain-path').setScale(2).setDepth(0)
-      }
-    }
-    for (let i = 0; i < points.length - 1; i++) {
-      const [x1, y1] = points[i]
-      const [x2, y2] = points[i + 1]
-      const dist = Phaser.Math.Distance.Between(x1, y1, x2, y2)
-      const steps = Math.max(1, Math.floor(dist / 18))
-      for (let j = 0; j <= steps; j++) stamp(Phaser.Math.Linear(x1, x2, j / steps), Phaser.Math.Linear(y1, y2, j / steps))
-    }
+  private path(_points: [number, number][]) {
+    // Paths are baked into cozy-map-ground from the supplied tile pack.
   }
 
   private drawWorld() {
@@ -364,7 +352,7 @@ class Bb2DScene extends Phaser.Scene {
       this.tweens.add({ targets: light, alpha: 0.55, scaleX: 1.08, yoyo: true, repeat: -1, duration: 900 + i * 160 })
     })
 
-    this.zone(2020, 630, 350, 280, 0x6a5130, 'Dubai → Canada', 2115, 670)
+    this.zone(2020, 630, 350, 280, 0x6a5130, 'Dubai to Canada', 2115, 670)
     this.blockingAsset('skyline', 2210, 790, 1.45, 120, 62, 18).setDepth(3)
     this.asset('lamp', 2075, 835, 1.0).setDepth(4)
     this.add.text(2180, 920, 'same team, new skyline', { fontFamily: 'monospace', fontSize: '13px', color: '#fff3ba', stroke: '#2a1a1e', strokeThickness: 3 }).setOrigin(0.5).setDepth(5)
@@ -446,20 +434,20 @@ class Bb2DScene extends Phaser.Scene {
 
     this.fixed(this.add.text(28, 16, 'Bb2D', {
       fontFamily: 'Georgia, serif', fontSize: '23px', color: '#ffe7a8',
-      stroke: '#4b2f1f', strokeThickness: 3,
+      stroke: '#1a1009', strokeThickness: 3,
     }).setDepth(95))
     this.areaLabel = this.fixed(this.add.text(28, 44, '', {
-      fontFamily: 'monospace', fontSize: '12px', color: '#5b3924',
+      fontFamily: 'monospace', fontSize: '12px', color: '#dfffe1', stroke: '#111a14', strokeThickness: 2,
     }).setDepth(95))
 
     this.ui = this.fixed(this.add.text(250, 21, '', {
-      fontFamily: 'monospace', fontSize: '15px', color: '#3a2a1d',
-      stroke: '#fff2c8', strokeThickness: 2,
+      fontFamily: 'monospace', fontSize: '14px', color: '#fff6dc',
+      stroke: '#111a14', strokeThickness: 2,
     }).setDepth(95))
 
     this.objective = this.fixed(this.add.text(628, 24, '', {
-      fontFamily: 'monospace', fontSize: '13px', color: '#3a2a1d',
-      wordWrap: { width: 286 }, lineSpacing: 4,
+      fontFamily: 'monospace', fontSize: '13px', color: '#fff6dc',
+      stroke: '#111a14', strokeThickness: 2, wordWrap: { width: 286 }, lineSpacing: 4,
     }).setDepth(95))
 
     this.prompt = this.fixed(this.add.text(28, 572, '', {
@@ -484,21 +472,19 @@ class Bb2DScene extends Phaser.Scene {
     const g = this.hud
     if (!g) return
     g.clear()
-    const panel = (x: number, y: number, w: number, h: number, fill = 0xf5d58b) => {
-      g.fillStyle(0x3d2618, 0.92)
-      g.fillRoundedRect(x + 4, y + 5, w, h, 10)
-      g.fillStyle(fill, 0.96)
-      g.fillRoundedRect(x, y, w, h, 10)
-      g.lineStyle(3, 0x7a4a24, 0.95)
-      g.strokeRoundedRect(x, y, w, h, 10)
-      g.lineStyle(1, 0xfff0b8, 0.65)
-      g.strokeRoundedRect(x + 5, y + 5, w - 10, h - 10, 7)
-    }
-    panel(14, 10, 190, 58, 0xe6b66f)
-    panel(224, 12, 366, 46, 0xf4d994)
-    panel(612, 12, 334, 104, 0xf3ddaa)
-    panel(804, 120, 142, 98, 0xe8c579)
-    panel(14, 556, 430, 66, 0x6f4428)
+    // One quiet top ribbon plus small anchored widgets. No emoji tofu, no box farm.
+    g.fillStyle(0x101815, 0.58)
+    g.fillRoundedRect(14, 10, 576, 56, 12)
+    g.lineStyle(1, 0xffe7a8, 0.32)
+    g.strokeRoundedRect(14, 10, 576, 56, 12)
+    g.fillStyle(0x101815, 0.62)
+    g.fillRoundedRect(612, 12, 334, 84, 12)
+    g.lineStyle(1, 0xffe7a8, 0.32)
+    g.strokeRoundedRect(612, 12, 334, 84, 12)
+    g.fillStyle(0x101815, 0.50)
+    g.fillRoundedRect(804, 116, 142, 102, 10)
+    g.fillStyle(0x101815, 0.48)
+    g.fillRoundedRect(14, 560, 424, 54, 10)
   }
 
   private addTouchButtons() {
@@ -510,9 +496,9 @@ class Bb2DScene extends Phaser.Scene {
       ['H', 884, 'Journal', () => this.showJournal()],
     ]
     buttons.forEach(([label, x, caption, action]) => {
-      const bg = this.fixed(this.add.rectangle(x, 588, 56, 48, 0x8b5a2b, 0.96).setStrokeStyle(3, 0xffe7a8, 0.9).setInteractive({ useHandCursor: true }).setDepth(95))
-      const txt = this.fixed(this.add.text(x, 580, label, { fontFamily: 'monospace', fontSize: '18px', color: '#fff3c2', stroke: '#2a1b12', strokeThickness: 3 }).setOrigin(0.5).setDepth(96))
-      const cap = this.fixed(this.add.text(x, 604, caption, { fontFamily: 'monospace', fontSize: '9px', color: '#fff6dc' }).setOrigin(0.5).setDepth(96))
+      const bg = this.fixed(this.add.circle(x, 584, 23, 0x21170d, 0.78).setStrokeStyle(2, 0xffe7a8, 0.62).setInteractive({ useHandCursor: true }).setDepth(95))
+      const txt = this.fixed(this.add.text(x, 578, label, { fontFamily: 'monospace', fontSize: '16px', color: '#fff3c2', stroke: '#111a14', strokeThickness: 3 }).setOrigin(0.5).setDepth(96))
+      const cap = this.fixed(this.add.text(x, 606, caption, { fontFamily: 'monospace', fontSize: '9px', color: '#fff6dc', stroke: '#111a14', strokeThickness: 2 }).setOrigin(0.5).setDepth(96))
       const wire = (obj: Phaser.GameObjects.GameObject) => obj.setInteractive({ useHandCursor: true }).on('pointerdown', (pointer: Phaser.Input.Pointer) => {
         pointer.event.stopPropagation()
         this.moveTarget = undefined
@@ -683,10 +669,10 @@ class Bb2DScene extends Phaser.Scene {
     const overlay = this.add.container(0, 0).setDepth(120).setScrollFactor(0).setName('puzzle')
     overlay.add(this.add.rectangle(480, 320, 960, 640, 0x07080d, 0.88).setScrollFactor(0))
     overlay.add(this.add.text(480, 72, 'Match-3 Memories', { fontFamily: 'monospace', fontSize: '30px', color: '#ffe7a8' }).setOrigin(0.5).setScrollFactor(0))
-    overlay.add(this.add.text(480, 112, 'Click adjacent tiles. Make any row or column of 3+. ESC closes.', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0))
+    overlay.add(this.add.text(480, 112, 'Click adjacent tiles. Match W wood, F fish, B bloom, D dinner, M music, C cats. ESC closes.', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0))
 
     const size = 6
-    const icons = ['🎧', '🌲', '🐟', '🌸', '🥟', '🐾']
+    const icons = ['M', 'W', 'F', 'B', 'D', 'C']
     const cells: string[][] = []
     const board: Phaser.GameObjects.Text[][] = []
     const boxes: Phaser.GameObjects.Rectangle[][] = []
@@ -762,7 +748,7 @@ class Bb2DScene extends Phaser.Scene {
       const matchedIcons: string[] = []
       for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) if (matched[r][c]) {
         matchedIcons.push(cells[r][c])
-        board[r][c].setText('✨')
+        board[r][c].setText('*')
         this.tweens.add({ targets: board[r][c], scale: 1.3, alpha: 0.4, yoyo: true, duration: 120 })
       }
       rewardMatch(matchedIcons)
@@ -793,12 +779,12 @@ class Bb2DScene extends Phaser.Scene {
       const awards: string[] = []
       const bonus = matchedIcons.length >= 4 ? 1 : 0
       unique.forEach(icon => {
-        if (icon === '🌲') { this.inv.wood += 1 + bonus; this.total.wood += 1 + bonus; awards.push(`+${1 + bonus} wood`) }
-        else if (icon === '🐟') { this.inv.fish += 1 + bonus; this.total.fish += 1 + bonus; awards.push(`+${1 + bonus} fish`) }
-        else if (icon === '🌸') { this.inv.blooms += 1 + bonus; this.total.blooms += 1 + bonus; awards.push(`+${1 + bonus} bloom`) }
-        else if (icon === '🥟') { this.inv.herbs += 1 + bonus; this.total.herbs += 1 + bonus; this.inv.decor++; awards.push(`+${1 + bonus} herb`, '+1 decor') }
-        else if (icon === '🎧') { this.inv.decor += 1 + bonus; awards.push(`+${1 + bonus} decor`) }
-        else if (icon === '🐾') { this.inv.hearts += 1 + bonus; awards.push(`+${1 + bonus} heart`) }
+        if (icon === 'W') { this.inv.wood += 1 + bonus; this.total.wood += 1 + bonus; awards.push(`+${1 + bonus} wood`) }
+        else if (icon === 'F') { this.inv.fish += 1 + bonus; this.total.fish += 1 + bonus; awards.push(`+${1 + bonus} fish`) }
+        else if (icon === 'B') { this.inv.blooms += 1 + bonus; this.total.blooms += 1 + bonus; awards.push(`+${1 + bonus} bloom`) }
+        else if (icon === 'D') { this.inv.herbs += 1 + bonus; this.total.herbs += 1 + bonus; this.inv.decor++; awards.push(`+${1 + bonus} herb`, '+1 decor') }
+        else if (icon === 'M') { this.inv.decor += 1 + bonus; awards.push(`+${1 + bonus} decor`) }
+        else if (icon === 'C') { this.inv.hearts += 1 + bonus; awards.push(`+${1 + bonus} heart`) }
       })
       if (!awards.length) { this.inv.decor++; awards.push('+1 decor') }
       this.checkUnlocks()
@@ -895,7 +881,7 @@ class Bb2DScene extends Phaser.Scene {
     photo.add(this.add.image(-136, 32, 'cozy-heart-decor').setScale(0.9))
     end.add(photo)
     end.add(this.add.text(480, 380,
-      'From university hallways to rave lights,\nfrom Dubai days to Canada home,\nfrom wellness walks to kitchen dates,\nfrom Pengu and Mila judging every choice...\n\nWe keep building the soft little world.\nOne memory, one meal, one cat hair, one home at a time.\n\nHappy everything, B. ♡',
+      'From university hallways to rave lights,\nfrom Dubai days to Canada home,\nfrom wellness walks to kitchen dates,\nfrom Pengu and Mila judging every choice...\n\nWe keep building the soft little world.\nOne memory, one meal, one cat hair, one home at a time.\n\nHappy everything, B. <3',
       { fontFamily: 'monospace', fontSize: '17px', color: '#ffffff', align: 'center', lineSpacing: 7, wordWrap: { width: 760 } }
     ).setOrigin(0.5).setScrollFactor(0))
     end.add(this.add.text(480, 590, 'Press R to play again', { fontFamily: 'monospace', fontSize: '15px', color: '#ffd7ed' }).setOrigin(0.5).setScrollFactor(0))
@@ -941,7 +927,7 @@ class Bb2DScene extends Phaser.Scene {
       ['Memory Shrine', new Phaser.Geom.Rectangle(1120, 760, 420, 320)],
       ['University', new Phaser.Geom.Rectangle(790, 160, 480, 300)],
       ['Rave Night', new Phaser.Geom.Rectangle(235, 1280, 460, 260)],
-      ['Dubai → Canada', new Phaser.Geom.Rectangle(2020, 630, 350, 280)],
+      ['Dubai to Canada', new Phaser.Geom.Rectangle(2020, 630, 350, 280)],
       ['Kitchen Date', new Phaser.Geom.Rectangle(1295, 250, 320, 250)],
       ['Cat Grove', new Phaser.Geom.Rectangle(760, 720, 320, 220)],
     ]
@@ -1073,7 +1059,7 @@ class Bb2DScene extends Phaser.Scene {
 
   private refreshUI() {
     const ch = this.currentChapter()
-    this.ui.setText(`🌲 ${this.total.wood}/${GOAL.wood}   🌿 ${this.total.herbs}/${GOAL.herbs}   🐟 ${this.total.fish}/${GOAL.fish}   🌸 ${this.total.blooms}/${GOAL.blooms}\n♡ ${this.inv.hearts}/${GOAL.hearts}   🏠 ${this.decorPlaced}/${GOAL.decorPlaced}   ✦ ${this.inv.memories}/${GOAL.memories}`)
+    this.ui.setText(`Wood ${this.total.wood}/${GOAL.wood}  Herb ${this.total.herbs}/${GOAL.herbs}  Fish ${this.total.fish}/${GOAL.fish}  Bloom ${this.total.blooms}/${GOAL.blooms}\nHeart ${this.inv.hearts}/${GOAL.hearts}  Home ${this.decorPlaced}/${GOAL.decorPlaced}  Memory ${this.inv.memories}/${GOAL.memories}`)
     const title = ch.title.replace(/^Chapter \d+: /, '').replace(/^Finale: /, '')
     this.objective.setText(`${title}\n${ch.objective}`)
   }
